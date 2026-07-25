@@ -1,0 +1,13 @@
+:root { color-scheme: light dark; font: 14px/1.45 system-ui, sans-serif; }
+body { margin: 0; min-width: 320px; }
+main { padding: 16px; display: grid; gap: 12px; }
+main.wide { max-width: 720px; margin: 0 auto; }
+h1 { font-size: 18px; margin: 0; }
+p { margin: 0; }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 0; }
+dt { font-weight: 600; }
+dd { margin: 0; overflow-wrap: anywhere; }
+button { width: fit-content; padding: 7px 12px; }
+textarea { width: 100%; box-sizing: border-box; font: 13px/1.4 ui-monospace, monospace; }
+.status.connected { color: #16803a; }
+.status.disconnected { color: #b42318; }

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Universal Chrome Agent Bridge</title>
+    <link rel="stylesheet" href="ui.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Browser Bridge</h1>
+      <p id="status" class="status">Checking connection…</p>
+      <dl>
+        <dt>Native host</dt><dd>org.universal_browser.bridge</dd>
+        <dt>Extension</dt><dd id="extension-id"></dd>
+      </dl>
+      <button id="reconnect" type="button">Reconnect</button>
+      <a href="options.html" target="_blank">Security settings</a>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

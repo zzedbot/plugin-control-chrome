@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+.runtime/
+extension.pem
+extension.crx
+.superpowers/

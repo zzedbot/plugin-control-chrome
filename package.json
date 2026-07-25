@@ -1,0 +1,26 @@
+{
+  "name": "universal-chrome-agent-bridge",
+  "version": "0.1.0",
+  "description": "Clean-room Chrome control bridge for MCP and JSON-RPC agents.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "bin": {
+    "universal-browser-mcp": "./src/mcp-server.mjs",
+    "universal-browser-rpc": "./src/jsonrpc-cli.mjs"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/native-host.mjs && node --check src/bridge-client.mjs && node --check src/mcp-server.mjs && node --check extension/background.js",
+    "build:host": "node scripts/build-native-host.mjs",
+    "install:host": "node scripts/install-host.mjs",
+    "uninstall:host": "node scripts/uninstall-host.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "postject": "^1.0.0-alpha.6"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

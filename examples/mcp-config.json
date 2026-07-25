@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "universalChrome": {
+      "command": "node",
+      "args": ["E:/AI/codex/workspace/chrome/src/mcp-server.mjs"]
+    }
+  }
+}
