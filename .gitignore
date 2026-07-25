@@ -5,3 +5,4 @@ dist/
 extension.pem
 extension.crx
 .superpowers/
+.worktrees/
