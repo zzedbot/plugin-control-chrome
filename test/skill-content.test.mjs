@@ -69,8 +69,8 @@ test("skill metadata and workflow expose the cross-tool contract", async () => {
     cursor = next;
   }
 
-  assert.match(metadata, /display_name: "閫氱敤 Chrome 鎺у埗"/);
-  assert.match(metadata, /short_description: "閫氳繃鏍囧噯 MCP 鎴栧懡浠よ瀹夊叏鎺у埗鐜版湁 Chrome"/);
+  assert.match(metadata, /display_name: "通用 Chrome 控制"/);
+  assert.match(metadata, /short_description: "通过标准 MCP 或命令行安全控制现有 Chrome"/);
   assert.match(metadata, /default_prompt: "Use \$control-universal-chrome to inspect and safely operate my existing Chrome tab\."/);
 });
 
@@ -91,11 +91,19 @@ test("security contract requires approval and forbids secret-store access", asyn
     assert.match(reference, new RegExp(`\\b${name}\\b[^\\n]*explicit user approval`, "i"));
   }
 
-  for (const category of ["cookies", "passwords", "Local Storage", "profiles", "session stores"])
+  for (const category of ["cookies", "passwords", "Local Storage", "profiles", "Session Storage"])
     assert.match(security, new RegExp(`\\b${category.replace(" ", "\\s+")}\\b`, "i"));
 
   assert.match(security, /login[^\n]*(?:stop|do not bypass)|(?:stop|do not bypass)[^\n]*login/i);
   assert.match(security, /CAPTCHA[^\n]*(?:stop|do not bypass)|(?:stop|do not bypass)[^\n]*CAPTCHA/i);
+});
+
+test("host approval discloses and authorizes subdomain scope", async () => {
+  const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
+  const security = await readFile(join(skillRoot, "references/security.md"), "utf8");
+  for (const content of [skill, security]) {
+    assert.match(content, /host and its subdomains[^\n]*explicit[^\n]*approval/i);
+  }
 });
 
 test("public skill does not depend on Codex-private browser runtime identifiers", async () => {

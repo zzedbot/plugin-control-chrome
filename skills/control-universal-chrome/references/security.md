@@ -5,7 +5,7 @@ Treat access to the user's signed-in Chrome profile as privileged automation. Pa
 ## Authorization contract
 
 - Bind authorization to the user's stated outcome, site, tab, data, and side effect. Speed or “however you can” never expands scope.
-- Ask for explicit approval before `policy_allow_host`, and name the exact host. A blocklist takes precedence over the allowlist and `allowAll`.
+- Disclose that `policy_allow_host` authorizes the exact host and its subdomains, then obtain explicit, specific approval for that scope. A blocklist takes precedence over the allowlist and `allowAll`.
 - Keep `policy_set_allow_all` disabled; it requires explicit user approval for the global scope.
 - Keep `policy_set_sensitive_metadata` disabled; enabling it and calling `browser_history_search`, `browser_bookmark_search`, or `browser_downloads_search` requires explicit user approval.
 - Add a method with `policy_allow_cdp_method`, or call it with `browser_cdp`, only after explicit user approval and a method-specific impact review.
@@ -13,7 +13,7 @@ Treat access to the user's signed-in Chrome profile as privileged automation. Pa
 
 ## Secrets and authentication
 
-Never read, export, infer, copy, log, or expose cookies, authorization headers, passwords, Local Storage, browser profiles, session stores, saved credentials, or runtime tokens. Do not ask the user to paste a secret into a model-visible channel.
+Never read, export, infer, copy, log, or expose cookies, authorization headers, passwords, Local Storage, browser profiles, Session Storage, saved credentials, or runtime tokens. Do not ask the user to paste a secret into a model-visible channel.
 
 If login or MFA appears, stop and ask the user to complete it interactively in Chrome. Do not bypass login or transfer a session from another account, profile, or source.
 
