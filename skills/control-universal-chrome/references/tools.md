@@ -1,6 +1,8 @@
 # Tool reference
 
-Use the public MCP tools when available. This reference defines the future Node CLI contract, but Task 1 does not create `scripts/invoke.mjs`; verify that later tasks have created the file before invoking it. Once present, use it only when the client cannot call MCP tools; both surfaces delegate to the same public bridge methods.
+Use the public MCP tools when available. Use the bundled Node CLI only when the client cannot call MCP tools; both surfaces delegate to the same public bridge methods.
+
+`<skill-root>` below means the resolved absolute directory containing the loaded `SKILL.md`. Replace the placeholder before running a command. The CLI entrypoint belongs to the Skill, not the Bridge project. It locates the Bridge project separately by searching upward from the script and current directories; if neither is inside the Bridge checkout, set `UNIVERSAL_CHROME_BRIDGE_ROOT` to the Bridge project root.
 
 ## Contents
 
@@ -12,8 +14,8 @@ Use the public MCP tools when available. This reference defines the future Node 
 ## Invocation forms
 
 - Direct MCP: call the named MCP tool with its JSON arguments, for example `browser_click({"tabId": 7, "locator": {"role": "link", "name": "More information"}})`.
-- Node CLI: run `node scripts/invoke.mjs call <bridge.method> '<json>'`, for example `node scripts/invoke.mjs call browser.click '{"tabId":7,"locator":{"role":"link","name":"More information"}}'`.
-- Instance discovery is the CLI exception: run `node scripts/invoke.mjs instances`. Select a particular live instance for either surface by setting `UNIVERSAL_BROWSER_INSTANCE_ID` for that client process.
+- Node CLI: run `node "<skill-root>/scripts/invoke.mjs" call <bridge.method> '<json>'`, for example `node "<skill-root>/scripts/invoke.mjs" call browser.click '{"tabId":7,"locator":{"role":"link","name":"More information"}}'`.
+- Instance discovery is the CLI exception: run `node "<skill-root>/scripts/invoke.mjs" instances`. Select a particular live instance for either surface by setting `UNIVERSAL_BROWSER_INSTANCE_ID` for that client process.
 
 Do not reimplement JSON-RPC, read runtime descriptors, or supply authentication tokens. The public Bridge Client handles discovery and authentication.
 
@@ -82,17 +84,17 @@ browser_read_text({"tabId":7})
 
 Confirm that the final URL/title/text differs as expected; do not infer success from the click response alone.
 
-Equivalent Node CLI sequence, available only after `scripts/invoke.mjs` exists:
+Equivalent Node CLI sequence:
 
 ```powershell
-node scripts/invoke.mjs instances
-node scripts/invoke.mjs call bridge.getInfo '{}'
-node scripts/invoke.mjs call policy.get '{}'
-node scripts/invoke.mjs call policy.allowHost '{"host":"example.com"}'
-node scripts/invoke.mjs call browser.openTab '{"url":"https://example.com"}'
-node scripts/invoke.mjs call browser.domSnapshot '{"tabId":7}'
-node scripts/invoke.mjs call browser.click '{"tabId":7,"locator":{"role":"link","name":"More information"}}'
-node scripts/invoke.mjs call browser.readText '{"tabId":7}'
+node "<skill-root>/scripts/invoke.mjs" instances
+node "<skill-root>/scripts/invoke.mjs" call bridge.getInfo '{}'
+node "<skill-root>/scripts/invoke.mjs" call policy.get '{}'
+node "<skill-root>/scripts/invoke.mjs" call policy.allowHost '{"host":"example.com"}'
+node "<skill-root>/scripts/invoke.mjs" call browser.openTab '{"url":"https://example.com"}'
+node "<skill-root>/scripts/invoke.mjs" call browser.domSnapshot '{"tabId":7}'
+node "<skill-root>/scripts/invoke.mjs" call browser.click '{"tabId":7,"locator":{"role":"link","name":"More information"}}'
+node "<skill-root>/scripts/invoke.mjs" call browser.readText '{"tabId":7}'
 ```
 
 Use the actual `tabId` returned by `browser.openTab`; `7` only shows how values flow between calls.

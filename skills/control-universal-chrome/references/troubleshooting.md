@@ -5,14 +5,14 @@ Recover the failed layer without installing software, starting processes, mutati
 ## Recovery sequence
 
 1. Record the exact sanitized error code, intended instance ID, and last verified read-only result. Never record descriptor tokens, private URLs, page screenshots, cookies, or authorization headers.
-2. Prefer `bridge_list_instances`, then `bridge_status`. For a read-only structured report, run `node scripts/doctor.mjs`; use `node scripts/invoke.mjs instances` / `node scripts/invoke.mjs call bridge.getInfo '{}'` for focused checks.
+2. Prefer `bridge_list_instances`, then `bridge_status`. Without MCP, resolve `<skill-root>` as the absolute directory containing the loaded `SKILL.md`. For a read-only structured report, run `node "<skill-root>/scripts/doctor.mjs"`; use `node "<skill-root>/scripts/invoke.mjs" instances` / `node "<skill-root>/scripts/invoke.mjs" call bridge.getInfo '{}'` for focused checks.
 3. Classify the error before changing anything. Apply one recovery action at the failed layer.
 4. Recheck in this order: instance discovery, selected-instance bridge status, `extensionConnected`, harmless tab listing, effective policy, then target state.
 5. Continue with one narrow action only after every preceding check passes. Re-read the target state after the action.
 
 ## `doctor.mjs` interpretation
 
-Run `node scripts/doctor.mjs` from the Skill directory. It emits one JSON report and does not install software, start processes, change policy, operate a browser page, or clean stale bridge runtime descriptors. Ordinary Bridge Client connections retain their default stale-descriptor cleanup as part of connection recovery. Use the first failed check to choose exactly one next action.
+Run `node "<skill-root>/scripts/doctor.mjs"`. It emits one JSON report and does not install software, start processes, change policy, operate a browser page, or clean stale bridge runtime descriptors. Ordinary Bridge Client connections retain their default stale-descriptor cleanup as part of connection recovery. Use the first failed check to choose exactly one next action.
 
 | Failed check | Next action |
 |---|---|

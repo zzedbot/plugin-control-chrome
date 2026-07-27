@@ -47,7 +47,7 @@ test("skill metadata and workflow expose the cross-tool contract", async () => {
   ]) assert.match(skill, new RegExp(resource.replaceAll(".", "\\.")));
 
   assert.doesNotMatch(skill, /scripts\/diagnose\.mjs/);
-  assert.match(skill, /scripts are unavailable until later tasks create them; verify each file exists before invoking it\./i);
+  assert.match(skill, /resolve CLI entrypoints from the loaded Skill root/i);
 
   const orderedDecisions = [
     "explicit Chrome intent",
@@ -104,6 +104,18 @@ test("host approval discloses and authorizes subdomain scope", async () => {
   for (const content of [skill, security]) {
     assert.match(content, /host and its subdomains[^\n]*explicit[^\n]*approval/i);
   }
+});
+
+test("CLI entrypoints resolve from the loaded Skill root, not the Bridge project root", async () => {
+  const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
+  const tools = await readFile(join(skillRoot, "references/tools.md"), "utf8");
+
+  assert.match(skill, /resolve CLI entrypoints from the loaded Skill root[^\n]*directory containing `SKILL\.md`/i);
+  assert.match(tools, /`<skill-root>`[^\n]*directory containing the loaded `SKILL\.md`/i);
+  assert.match(tools, /Bridge project[^\n]*separately[^\n]*searching upward/i);
+  assert.match(tools, /UNIVERSAL_CHROME_BRIDGE_ROOT/);
+  assert.match(tools, /node "<skill-root>\/scripts\/invoke\.mjs" instances/);
+  assert.doesNotMatch(tools, /run `node scripts\/invoke\.mjs/);
 });
 
 test("public skill does not depend on Codex-private browser runtime identifiers", async () => {
