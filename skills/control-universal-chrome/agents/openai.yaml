@@ -1,0 +1,4 @@
+interface:
+  display_name: "閫氱敤 Chrome 鎺у埗"
+  short_description: "閫氳繃鏍囧噯 MCP 鎴栧懡浠よ瀹夊叏鎺у埗鐜版湁 Chrome"
+  default_prompt: "Use $control-universal-chrome to inspect and safely operate my existing Chrome tab."
