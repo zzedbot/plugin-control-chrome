@@ -5,10 +5,22 @@ Recover the failed layer without installing software, starting processes, mutati
 ## Recovery sequence
 
 1. Record the exact sanitized error code, intended instance ID, and last verified read-only result. Never record descriptor tokens, private URLs, page screenshots, cookies, or authorization headers.
-2. Prefer `bridge_list_instances`, then `bridge_status`. Task 1 does not create CLI scripts. Only after a later task creates the named file and you verify it exists, run `node scripts/doctor.mjs` for a read-only structured report or `node scripts/invoke.mjs instances` / `node scripts/invoke.mjs call bridge.getInfo '{}'` for focused checks.
+2. Prefer `bridge_list_instances`, then `bridge_status`. For a read-only structured report, run `node scripts/doctor.mjs`; use `node scripts/invoke.mjs instances` / `node scripts/invoke.mjs call bridge.getInfo '{}'` for focused checks.
 3. Classify the error before changing anything. Apply one recovery action at the failed layer.
 4. Recheck in this order: instance discovery, selected-instance bridge status, `extensionConnected`, harmless tab listing, effective policy, then target state.
 5. Continue with one narrow action only after every preceding check passes. Re-read the target state after the action.
+
+## `doctor.mjs` interpretation
+
+Run `node scripts/doctor.mjs` from the Skill directory. It emits one JSON report and does not install software, start processes, change policy, or operate a browser page. Use the first failed check to choose exactly one next action.
+
+| Failed check | Next action |
+|---|---|
+| `node` | Install or select Node.js 22+ |
+| `bridgeRoot` | Set `UNIVERSAL_CHROME_BRIDGE_ROOT` |
+| `bridgeClient` | Restore the repository installation |
+| `instances` | Start Chrome and verify Native Host registration |
+| `connection` | Open extension status and verify Native Messaging connectivity |
 
 ## Error handling
 
