@@ -12,7 +12,7 @@ Recover the failed layer without installing software, starting processes, mutati
 
 ## `doctor.mjs` interpretation
 
-Run `node scripts/doctor.mjs` from the Skill directory. It emits one JSON report and does not install software, start processes, change policy, or operate a browser page. Use the first failed check to choose exactly one next action.
+Run `node scripts/doctor.mjs` from the Skill directory. It emits one JSON report and does not install software, start processes, change policy, operate a browser page, or clean stale bridge runtime descriptors. Ordinary Bridge Client connections retain their default stale-descriptor cleanup as part of connection recovery. Use the first failed check to choose exactly one next action.
 
 | Failed check | Next action |
 |---|---|

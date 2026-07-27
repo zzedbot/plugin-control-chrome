@@ -49,7 +49,7 @@ export async function runDiagnostics(options = {}) {
 
   let instances;
   try {
-    instances = await client.listBridgeInstances();
+    instances = await client.listBridgeInstances({ cleanupStale: false });
     if (!Array.isArray(instances)) {
       throw Object.assign(new Error("Bridge Client returned invalid instances."), { code: "BRIDGE_INSTANCES_INVALID" });
     }
@@ -82,7 +82,7 @@ export async function runDiagnostics(options = {}) {
   }
 
   try {
-    const bridge = await client.connectBridge({ instanceId: instance.instanceId });
+    const bridge = await client.connectBridge({ instanceId: instance.instanceId, cleanupStale: false });
     const status = await bridge.call("bridge.getInfo", {});
     const extensionConnected = status?.extensionConnected === true;
     report.connection = {

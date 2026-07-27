@@ -127,16 +127,20 @@ test("reports a connected bridge whose extension is disconnected", async () => {
   assert.equal(report.ok, false);
 });
 
-test("selects the requested instance before checking its connection", async () => {
+test("uses read-only discovery and connection options for the requested instance", async () => {
   const { runDiagnostics } = await doctorModule();
+  const discoveryOptions = [];
   const connectionOptions = [];
   const dependencies = diagnosticDependencies({
     env: { UNIVERSAL_BROWSER_INSTANCE_ID: "chrome-b" },
     loadClient: async () => ({
-      listBridgeInstances: async () => [
-        { instanceId: "chrome-a", startedAt: "2026-07-27T00:00:00.000Z" },
-        { instanceId: "chrome-b", startedAt: "2026-07-27T00:00:01.000Z" }
-      ],
+      listBridgeInstances: async (options) => {
+        discoveryOptions.push(options);
+        return [
+          { instanceId: "chrome-a", startedAt: "2026-07-27T00:00:00.000Z" },
+          { instanceId: "chrome-b", startedAt: "2026-07-27T00:00:01.000Z" }
+        ];
+      },
       connectBridge: async (options) => {
         connectionOptions.push(options);
         return { call: async () => ({ extensionConnected: true }) };
@@ -147,7 +151,8 @@ test("selects the requested instance before checking its connection", async () =
 
   const report = await runDiagnostics(dependencies);
 
-  assert.deepEqual(connectionOptions, [{ instanceId: "chrome-b" }]);
+  assert.deepEqual(discoveryOptions, [{ cleanupStale: false }]);
+  assert.deepEqual(connectionOptions, [{ instanceId: "chrome-b", cleanupStale: false }]);
   assert.equal(report.connection.instanceId, "chrome-b");
   assert.equal(report.ok, true);
 });
