@@ -167,6 +167,43 @@ test("delegates instance discovery to the Bridge Client", async () => {
   assert.equal(loadCalls, 0);
 });
 
+test("CLI instance discovery exposes only stable public descriptor fields", async () => {
+  await withFixture(async (fixtureRoot) => {
+    await writeFile(
+      path.join(fixtureRoot, "src", "bridge-client.mjs"),
+      `export async function listBridgeInstances() {
+        return [{
+          instanceId: "chrome-a",
+          pid: 1234,
+          transport: "local-pipe",
+          nativeHostName: "org.universal_browser.bridge",
+          startedAt: "2026-07-27T00:00:00.000Z",
+          endpoint: "private-endpoint",
+          token: "top-level-secret",
+          diagnostics: { token: "nested-secret", futureField: true },
+          futureField: "future-secret",
+          schemaVersion: 99
+        }];
+      }\n`
+    );
+
+    const result = await runNode([fileURLToPath(invokeUrl), "instances"], {
+      env: { ...process.env, UNIVERSAL_CHROME_BRIDGE_ROOT: fixtureRoot }
+    });
+
+    assert.equal(result.status, 0);
+    assert.equal(result.stderr, "");
+    assert.deepEqual(JSON.parse(result.stdout), [{
+      instanceId: "chrome-a",
+      pid: 1234,
+      transport: "local-pipe",
+      nativeHostName: "org.universal_browser.bridge",
+      startedAt: "2026-07-27T00:00:00.000Z"
+    }]);
+    assert.doesNotMatch(result.stdout, /secret|token|endpoint|futureField|schemaVersion/);
+  });
+});
+
 test("delegates calls with exact arguments and timeout forwarding", async () => {
   const { runInvocation } = await invokeModule();
   const expectedResult = [{ id: 7, title: "Docs" }];
@@ -229,5 +266,34 @@ test("CLI writes one JSON value when a Bridge Client call returns undefined", as
     assert.equal(result.status, 0);
     assert.equal(result.stderr, "");
     assert.equal(result.stdout, "null\n");
+  });
+});
+
+test("CLI failure exits nonzero with empty stdout and one JSON line on stderr", async () => {
+  await withFixture(async (fixtureRoot) => {
+    await writeFile(
+      path.join(fixtureRoot, "src", "bridge-client.mjs"),
+      `export async function connectBridge() {
+        const error = Object.assign(new Error("Bridge unavailable"), {
+          code: "BRIDGE_NOT_FOUND",
+          data: { recovery: "Open Chrome" }
+        });
+        throw error;
+      }\n`
+    );
+    const result = await runNode(
+      [fileURLToPath(invokeUrl), "call", "bridge.getInfo", "{}"],
+      { env: { ...process.env, UNIVERSAL_CHROME_BRIDGE_ROOT: fixtureRoot } }
+    );
+
+    assert.notEqual(result.status, 0);
+    assert.equal(result.stdout, "");
+    const lines = result.stderr.split(/\r?\n/).filter(Boolean);
+    assert.equal(lines.length, 1);
+    assert.deepEqual(JSON.parse(lines[0]), {
+      error: "Bridge unavailable",
+      code: "BRIDGE_NOT_FOUND",
+      details: { recovery: "Open Chrome" }
+    });
   });
 });

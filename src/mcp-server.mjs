@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import readline from "node:readline";
-import { connectBridge, listBridgeInstances } from "./bridge-client.mjs";
+import { connectBridge, listBridgeInstances, toPublicBridgeInstance } from "./bridge-client.mjs";
 
 const SERVER_INFO = { name: "universal-chrome-agent-bridge", version: "0.1.0" };
 const TOOLS = buildTools();
@@ -40,7 +40,9 @@ async function callTool(name, args) {
   const tool = toolByName.get(name);
   if (!tool) throw Object.assign(new Error(`Unknown tool: ${name}`), { rpcCode: -32602 });
   try {
-    if (name === "bridge_list_instances") return textResult(await listBridgeInstances());
+    if (name === "bridge_list_instances") {
+      return textResult((await listBridgeInstances()).map(toPublicBridgeInstance));
+    }
     client ||= await connectBridge({ instanceId: process.env.UNIVERSAL_BROWSER_INSTANCE_ID });
     const result = await client.call(tool.method, args, { timeoutMs: Number(args.timeoutMs) || undefined });
     if (tool.imageResult && result?.data) {

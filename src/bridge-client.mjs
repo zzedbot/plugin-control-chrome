@@ -4,6 +4,25 @@ import path from "node:path";
 import { runtimeDirectory } from "./runtime-paths.mjs";
 
 export async function listBridgeInstances({ cleanupStale = true } = {}) {
+  return (await discoverBridgeDescriptors({ cleanupStale })).map(toPublicBridgeInstance);
+}
+
+export function toPublicBridgeInstance(descriptor) {
+  const instance = {};
+  for (const [field, type] of [
+    ["instanceId", "string"],
+    ["pid", "number"],
+    ["transport", "string"],
+    ["nativeHostName", "string"],
+    ["startedAt", "string"]
+  ]) {
+    const value = descriptor?.[field];
+    if (typeof value === type && (type !== "number" || Number.isFinite(value))) instance[field] = value;
+  }
+  return instance;
+}
+
+async function discoverBridgeDescriptors({ cleanupStale = true } = {}) {
   let names;
   try { names = await fs.readdir(runtimeDirectory()); } catch (error) {
     if (error.code === "ENOENT") return [];
@@ -22,7 +41,7 @@ export async function listBridgeInstances({ cleanupStale = true } = {}) {
 }
 
 export async function connectBridge({ instanceId, timeoutMs = 3000, cleanupStale = true } = {}) {
-  const instances = await listBridgeInstances({ cleanupStale });
+  const instances = await discoverBridgeDescriptors({ cleanupStale });
   const descriptor = instanceId ? instances.find((item) => item.instanceId === instanceId) : instances[0];
   if (!descriptor) throw Object.assign(new Error("No running Universal Chrome Agent Bridge instance was found. Open Chrome and enable the extension."), { code: "BRIDGE_NOT_FOUND" });
   return new BridgeClient(descriptor, timeoutMs);

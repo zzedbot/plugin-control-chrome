@@ -1,6 +1,6 @@
 # Tool reference
 
-Use the public MCP tools when available. Use the bundled Node CLI only when the client cannot call MCP tools; both surfaces delegate to the same public bridge methods.
+Use the public MCP tools when available. The preferred MCP server is `universalChrome`. Use the bundled Node CLI only when the client cannot call MCP tools; both surfaces delegate to the same public bridge methods.
 
 `<skill-root>` below means the resolved absolute directory containing the loaded `SKILL.md`. Replace the placeholder before running a command. The CLI entrypoint belongs to the Skill, not the Bridge project. It locates the Bridge project separately by searching upward from the script and current directories; if neither is inside the Bridge checkout, set `UNIVERSAL_CHROME_BRIDGE_ROOT` to the Bridge project root.
 
@@ -21,49 +21,49 @@ Do not reimplement JSON-RPC, read runtime descriptors, or supply authentication 
 
 ## Tool mapping
 
-| Direct MCP tool | Bridge method / CLI target | Use and approval boundary |
-|---|---|---|
-| `bridge_list_instances` | CLI `instances` | List live local bridge instances. |
-| `bridge_status` | `bridge.getInfo` | Read host, instance, transport, and extension handshake state. |
-| `policy_get` | `policy.get` | Read effective local policy. |
-| `policy_allow_host` | `policy.allowHost` | Allow one exact HTTP(S) host and subdomains only after explicit user approval. |
-| `policy_block_host` | `policy.blockHost` | Block a host and its subdomains. |
-| `policy_set_allow_all` | `policy.setAllowAll` | Global site access; requires explicit user approval. Keep disabled by default. |
-| `policy_set_sensitive_metadata` | `policy.setSensitiveMetadata` | History/bookmark/download metadata gate; requires explicit user approval. |
-| `policy_allow_cdp_method` | `policy.allowCdpMethod` | Add one raw CDP method; requires explicit user approval after impact review. |
-| `browser_get_info` | `browser.getInfo` | Read backend identity and capabilities. |
-| `browser_list_tabs` | `browser.listTabs` | List tabs; unapproved sites are redacted. |
-| `browser_get_tab` | `browser.getTab` | Read one tab; unapproved sites are redacted. |
-| `browser_open_tab` | `browser.openTab` | Open an approved URL. |
-| `browser_close_tab` | `browser.closeTab` | Close one selected tab. Confirm if unsaved work may be lost. |
-| `browser_activate_tab` | `browser.activateTab` | Activate a tab and focus its window. |
-| `browser_claim_tab` | `browser.claimTab` | Attach debugger-backed control to an approved tab. |
-| `browser_detach_tab` | `browser.detachTab` | Detach debugger-backed control. |
-| `browser_navigate` | `browser.navigate` | Navigate a selected tab to an approved URL. |
-| `browser_back` | `browser.back` | Navigate backward. |
-| `browser_forward` | `browser.forward` | Navigate forward. |
-| `browser_reload` | `browser.reload` | Reload, optionally bypassing cache. |
-| `browser_group_tabs` | `browser.groupTabs` | Create or update a Chrome tab group. |
-| `browser_read_text` | `browser.readText` | Read URL, title, and bounded visible text. |
-| `browser_dom_snapshot` | `browser.domSnapshot` | Read compact interactive DOM state for locators. |
-| `browser_accessibility_snapshot` | `browser.accessibilitySnapshot` | Read the Chrome accessibility tree. |
-| `browser_screenshot` | `browser.screenshot` | Capture sensitive image data only when needed. |
-| `browser_click` | `browser.click` | Click one visible element resolved by a stable locator. |
-| `browser_fill` | `browser.fill` | Focus, clear, and fill one located input. Never supply secrets. |
-| `browser_press` | `browser.press` | Dispatch one keyboard key to the active element. |
-| `browser_type` | `browser.type` | Insert non-secret text into the focused element. |
-| `browser_mouse_move` | `browser.mouseMove` | Move to current viewport coordinates. |
-| `browser_coordinate_click` | `browser.coordinateClick` | Vision-guided fallback after semantic retries and a fresh screenshot. |
-| `browser_drag` | `browser.drag` | Drag between current viewport points or unique locators. |
-| `browser_wheel` | `browser.wheel` | Dispatch a wheel event at current viewport coordinates. |
-| `browser_scroll` | `browser.scroll` | Scroll by CSS pixels. |
-| `browser_set_file_input` | `browser.setFileInput` | Set files on one CSS-selected file input; verify file scope first. |
-| `browser_handle_dialog` | `browser.handleDialog` | Accept or dismiss a JavaScript dialog; confirm consequential choices. |
-| `browser_get_events` | `browser.getEvents` | Read buffered debugger events with a sequence cursor. |
-| `browser_cdp` | `browser.cdp` | Send one allowlisted raw CDP command; requires explicit user approval. |
-| `browser_history_search` | `browser.historySearch` | Search sensitive history metadata; requires explicit user approval. |
-| `browser_bookmark_search` | `browser.bookmarkSearch` | Search sensitive bookmark metadata; requires explicit user approval. |
-| `browser_downloads_search` | `browser.downloadsSearch` | Search sensitive download metadata; requires explicit user approval. |
+| Direct MCP tool | Bridge method / CLI target | Required parameters | Optional parameters | Result summary | Use and approval boundary |
+|---|---|---|---|---|---|
+| `bridge_list_instances` | `instances` | — | — | Array of public instance descriptors: instance ID, PID, transport, host name, and start time. | Discover first; the result never includes endpoint, token, or unknown descriptor fields. |
+| `bridge_status` | `bridge.getInfo` | — | — | Bridge identity, selected instance, transport, and extension handshake state. | Call only after instance selection. |
+| `policy_get` | `policy.get` | — | — | Effective allowlist, blocklist, global gates, and CDP allowlist. | Read before requesting a policy change. |
+| `policy_allow_host` | `policy.allowHost` | `host` | — | Saved effective policy. | Allow the exact HTTP(S) host and subdomains only after explicit user approval. |
+| `policy_block_host` | `policy.blockHost` | `host` | — | Saved effective policy. | Block the host and its subdomains; the blocklist wins. |
+| `policy_set_allow_all` | `policy.setAllowAll` | `enabled` | — | Saved effective policy. | Global site access requires explicit user approval; keep disabled by default. |
+| `policy_set_sensitive_metadata` | `policy.setSensitiveMetadata` | `enabled` | — | Saved effective policy. | History, bookmark, and download metadata access requires explicit user approval. |
+| `policy_allow_cdp_method` | `policy.allowCdpMethod` | `command` | — | Saved effective policy with the command allowlisted. | Raw CDP permission requires explicit user approval after impact review. |
+| `browser_get_info` | `browser.getInfo` | — | — | Browser backend identity, version, and capability list. | Read-only capability discovery. |
+| `browser_list_tabs` | `browser.listTabs` | — | `query` | Array of Chrome tab records. | Unapproved-site details are redacted. |
+| `browser_get_tab` | `browser.getTab` | `tabId` | — | One Chrome tab record. | Unapproved-site details are redacted. |
+| `browser_open_tab` | `browser.openTab` | `url` | `active`, `windowId` | Created Chrome tab record. | The target URL must be approved. |
+| `browser_close_tab` | `browser.closeTab` | `tabId` | — | Closure confirmation. | Confirm first if unsaved work may be lost. |
+| `browser_activate_tab` | `browser.activateTab` | `tabId` | — | Activated tab record. | Also focuses its Chrome window. |
+| `browser_claim_tab` | `browser.claimTab` | `tabId` | — | Claimed tab record. | Attaches debugger-backed control to an approved tab. |
+| `browser_detach_tab` | `browser.detachTab` | `tabId` | — | Detach confirmation. | Releases debugger-backed control. |
+| `browser_navigate` | `browser.navigate` | `tabId`, `url` | — | Updated tab record. | The target URL must be approved. |
+| `browser_back` | `browser.back` | `tabId` | — | Navigation acknowledgement. | Verify the resulting state. |
+| `browser_forward` | `browser.forward` | `tabId` | — | Navigation acknowledgement. | Verify the resulting state. |
+| `browser_reload` | `browser.reload` | `tabId` | `bypassCache` | Reload acknowledgement. | Verify whether prior mutations already occurred. |
+| `browser_group_tabs` | `browser.groupTabs` | `tabIds` | `groupId`, `title`, `color`, `collapsed` | Chrome tab-group record. | Group only the intended tabs. |
+| `browser_read_text` | `browser.readText` | `tabId` | `maxChars` | URL, title, and bounded visible body text. | Prefer this for lightweight observation. |
+| `browser_dom_snapshot` | `browser.domSnapshot` | `tabId` | `maxNodes`, `maxTextChars` | Compact interactive DOM nodes and page metadata. | Use to construct stable locators. |
+| `browser_accessibility_snapshot` | `browser.accessibilitySnapshot` | `tabId` | — | Chrome accessibility tree. | Use for accessible roles, names, and state. |
+| `browser_screenshot` | `browser.screenshot` | `tabId` | `format`, `quality`, `captureBeyondViewport` | MCP image content with MIME type. | Capture sensitive visual data only when needed. |
+| `browser_click` | `browser.click` | `tabId`, `locator` | `button`, `clickCount` | Click result for the uniquely resolved element. | Use a stable visible locator and verify afterward. |
+| `browser_fill` | `browser.fill` | `tabId`, `locator`, `value` | — | Fill result for the uniquely resolved input. | Never supply secrets. |
+| `browser_press` | `browser.press` | `tabId`, `key` | `modifiers` | Key-dispatch acknowledgement. | Ensure the intended element has focus. |
+| `browser_type` | `browser.type` | `tabId`, `text` | — | Typed flag and inserted-text length. | Insert only non-secret text into the focused element. |
+| `browser_mouse_move` | `browser.mouseMove` | `tabId`, `x`, `y` | — | Final viewport coordinates. | Use only with current viewport evidence. |
+| `browser_coordinate_click` | `browser.coordinateClick` | `tabId`, `x`, `y` | `button`, `clickCount` | Clicked coordinates, button, and count. | Use only after semantic retries and a fresh screenshot. |
+| `browser_drag` | `browser.drag` | `tabId`, `from`, `to` | `steps` | Drag result with resolved endpoints. | Use current points or unique locators. |
+| `browser_wheel` | `browser.wheel` | `tabId`, `x`, `y` | `deltaX`, `deltaY` | Wheel-dispatch acknowledgement. | Coordinates refer to the current viewport. |
+| `browser_scroll` | `browser.scroll` | `tabId` | `deltaX`, `deltaY` | Resulting page scroll coordinates. | Re-read state after scrolling. |
+| `browser_set_file_input` | `browser.setFileInput` | `tabId`, `selector`, `files` | — | File-input assignment result. | Verify the selector and exact file scope first. |
+| `browser_handle_dialog` | `browser.handleDialog` | `tabId` | `accept`, `promptText` | Dialog-handling acknowledgement. | Confirm consequential accept or dismiss choices. |
+| `browser_get_events` | `browser.getEvents` | `tabId` | `afterSequence`, `limit`, `methods` | Buffered events with cursor, pagination, and truncation state. | Continue from the returned sequence cursor. |
+| `browser_cdp` | `browser.cdp` | `tabId`, `command` | `params` | Raw CDP command result. | Allowlisted raw CDP use requires explicit user approval. |
+| `browser_history_search` | `browser.historySearch` | — | `text`, `startTime`, `endTime`, `maxResults` | Array of Chrome history records. | Sensitive history metadata requires explicit user approval. |
+| `browser_bookmark_search` | `browser.bookmarkSearch` | — | `query`, `text` | Array of Chrome bookmark records. | Sensitive bookmark metadata requires explicit user approval. |
+| `browser_downloads_search` | `browser.downloadsSearch` | — | `query` | Array of Chrome download metadata records. | Sensitive download metadata requires explicit user approval. |
 
 ## Complete example
 

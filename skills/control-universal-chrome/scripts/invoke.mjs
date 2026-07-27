@@ -69,7 +69,7 @@ export async function runInvocation(invocation, dependencies = {}) {
   try {
     if (invocation?.mode === "instances") {
       const listBridgeInstances = await resolveClientFunction("listBridgeInstances", dependencies);
-      return await listBridgeInstances();
+      return (await listBridgeInstances()).map(toPublicBridgeInstance);
     }
     if (invocation?.mode !== "call" || !invocation.method) throw invalidArguments();
 
@@ -87,6 +87,21 @@ export async function runInvocation(invocation, dependencies = {}) {
   } catch (error) {
     throw normalizeError(error);
   }
+}
+
+function toPublicBridgeInstance(descriptor) {
+  const instance = {};
+  for (const [field, type] of [
+    ["instanceId", "string"],
+    ["pid", "number"],
+    ["transport", "string"],
+    ["nativeHostName", "string"],
+    ["startedAt", "string"]
+  ]) {
+    const value = descriptor?.[field];
+    if (typeof value === type && (type !== "number" || Number.isFinite(value))) instance[field] = value;
+  }
+  return instance;
 }
 
 export async function loadClient(bridgeRoot) {
