@@ -37,7 +37,7 @@ Do not reimplement JSON-RPC, read runtime descriptors, or supply authentication 
 | `browser_open_tab` | `browser.openTab` | `url` | `active`, `windowId` | Created Chrome tab record. | The target URL must be approved. |
 | `browser_close_tab` | `browser.closeTab` | `tabId` | — | Closure confirmation. | Confirm first if unsaved work may be lost. |
 | `browser_activate_tab` | `browser.activateTab` | `tabId` | — | Activated tab record. | Also focuses its Chrome window. |
-| `browser_claim_tab` | `browser.claimTab` | `tabId` | — | Claimed tab record. | Attaches debugger-backed control to an approved tab. |
+| `browser_claim_tab` | `browser.claimTab` | `tabId` | — | Claimed tab record. | Installs the controlled-tab foreign-frame monitor, then attaches debugger-backed control to an approved tab. |
 | `browser_detach_tab` | `browser.detachTab` | `tabId` | — | Detach confirmation. | Releases debugger-backed control. |
 | `browser_navigate` | `browser.navigate` | `tabId`, `url` | — | Updated tab record. | The target URL must be approved. |
 | `browser_back` | `browser.back` | `tabId` | — | Navigation acknowledgement. | Verify the resulting state. |

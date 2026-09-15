@@ -20,6 +20,7 @@ It does not claim to defend against a fully compromised OS account, a malicious 
 - A hostname blocklist takes precedence over all other settings.
 - History, bookmarks, and downloads are disabled independently.
 - Raw CDP is method-allowlisted.
+- Foreign-extension-frame mitigation is injected only into explicitly controlled tabs, immediately before debugger attachment; it is not a global content script.
 - Third-party IPC uses a random 256-bit token.
 - IPC is a local named pipe or Unix socket, not a listening TCP port.
 - Native Messaging accepts only the configured Chrome extension ID.
@@ -48,6 +49,7 @@ Before distributing to untrusted end users, add:
 - Keep `allowAll` off.
 - Allow only the specific host needed for the current task.
 - Keep DevTools closed on tabs being controlled; Chrome generally permits only one debugger attachment owner.
+- When a controlled page contains another extension's `chrome-extension://` iframe/frame, the bridge navigates that frame to `about:blank`, removes the element after the safe navigation commits, and waits for its frame to disappear so Chrome's debugger isolation check can succeed. The bridge neither reads nor returns the foreign extension URL or contents. Detaching stops future monitoring but cannot restore the removed frame; reloading the page after detach lets the owning extension recreate it.
 - Do not add broad CDP mutation commands without reviewing their impact.
 - Review active account and tenant before approving actions.
 - Remove the extension and Native Host when no longer needed.

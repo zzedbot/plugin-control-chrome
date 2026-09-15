@@ -9,6 +9,7 @@ Treat access to the user's signed-in Chrome profile as privileged automation. Pa
 - Keep `policy_set_allow_all` disabled; it requires explicit user approval for the global scope.
 - Keep `policy_set_sensitive_metadata` disabled; enabling it and calling `browser_history_search`, `browser_bookmark_search`, or `browser_downloads_search` requires explicit user approval.
 - Add a method with `policy_allow_cdp_method`, or call it with `browser_cdp`, only after explicit user approval and a method-specific impact review.
+- `browser_claim_tab` may neutralize `chrome-extension://` iframe/frame content injected by another extension, but only inside the explicitly controlled tab. It does not read or return that frame's URL or contents. Detaching stops the monitor; reloading afterward lets the owning extension rebuild its UI.
 - Ask for immediate, exact confirmation before sending messages, purchases, financial actions, account changes, deletion, or publishing. The project does not provide a native consent UI for these classes.
 
 ## Secrets and authentication

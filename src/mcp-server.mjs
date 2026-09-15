@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 import readline from "node:readline";
 import { connectBridge, listBridgeInstances, toPublicBridgeInstance } from "./bridge-client.mjs";
+import { VERSION } from "./version.mjs";
 
-const SERVER_INFO = { name: "universal-chrome-agent-bridge", version: "0.1.0" };
+const SERVER_INFO = { name: "universal-chrome-agent-bridge", version: VERSION };
 const TOOLS = buildTools();
 const toolByName = new Map(TOOLS.map((tool) => [tool.name, tool]));
 let client;

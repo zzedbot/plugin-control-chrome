@@ -6,6 +6,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
+import { VERSION } from "../src/version.mjs";
 
 test("MCP server initializes and lists browser tools", async (t) => {
   const child = spawn(process.execPath, [path.resolve("src/mcp-server.mjs")], { stdio: ["pipe", "pipe", "pipe"] });
@@ -19,6 +20,7 @@ test("MCP server initializes and lists browser tools", async (t) => {
   await waitUntil(() => responses.length === 2);
 
   assert.equal(responses[0].result.serverInfo.name, "universal-chrome-agent-bridge");
+  assert.equal(responses[0].result.serverInfo.version, VERSION);
   assert.ok(responses[1].result.tools.some((tool) => tool.name === "browser_dom_snapshot"));
   assert.ok(responses[1].result.tools.some((tool) => tool.name === "policy_allow_host"));
 });

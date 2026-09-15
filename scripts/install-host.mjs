@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -17,9 +18,19 @@ if (!/^[a-p]{32}$/.test(args.extensionId)) throw new Error("extension-id must be
 const root = path.resolve(import.meta.dirname, "..");
 const source = path.join(root, "dist", process.platform === "win32" ? "universal-browser-host.exe" : "universal-browser-host");
 const installDir = path.join(dataDirectory(), "bin");
-const target = path.join(installDir, path.basename(source));
+// Keep a running host untouched; Chrome picks up the new path on its next connection.
+const digest = createHash("sha256").update(await fs.readFile(source)).digest("hex").slice(0, 16);
+const parsedSource = path.parse(source);
+const target = path.join(installDir, `${parsedSource.name}-${digest}${parsedSource.ext}`);
 await fs.mkdir(installDir, { recursive: true });
-await fs.copyFile(source, target);
+try {
+  await fs.copyFile(source, target, fs.constants.COPYFILE_EXCL);
+} catch (error) {
+  if (error.code !== "EEXIST") throw error;
+  const existingDigest = createHash("sha256").update(await fs.readFile(target)).digest("hex");
+  const sourceDigest = createHash("sha256").update(await fs.readFile(source)).digest("hex");
+  if (existingDigest !== sourceDigest) throw new Error("Installed host hash does not match the build");
+}
 if (process.platform !== "win32") await fs.chmod(target, 0o755);
 
 const manifest = {

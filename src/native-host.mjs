@@ -8,6 +8,7 @@ import process from "node:process";
 import { NativeMessageDecoder, encodeNativeMessage } from "./native-framing.mjs";
 import { assertCdpAllowed, assertUrlAllowed, isHostAllowed, loadPolicy, normalizeHost, savePolicy } from "./policy.mjs";
 import { HOST_NAME, runtimeDirectory } from "./runtime-paths.mjs";
+import { VERSION } from "./version.mjs";
 
 const instanceId = crypto.randomUUID();
 const token = crypto.randomBytes(32).toString("base64url");
@@ -120,7 +121,7 @@ async function dispatch(method, params) {
   if (method === "bridge.getInfo") {
     return {
       name: "Universal Chrome Agent Bridge",
-      version: "0.1.0",
+      version: VERSION,
       instanceId,
       extensionConnected: extensionInfo != null,
       extension: extensionInfo,

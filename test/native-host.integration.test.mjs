@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { BridgeClient } from "../src/bridge-client.mjs";
 import { NativeMessageDecoder, encodeNativeMessage } from "../src/native-framing.mjs";
+import { VERSION } from "../src/version.mjs";
 
 test("native host publishes an authenticated pipe and accepts bridge RPC", async (t) => {
   const taskDir = await fs.mkdtemp(path.join(os.tmpdir(), "universal-browser-host-test-"));
@@ -26,6 +27,7 @@ test("native host publishes an authenticated pipe and accepts bridge RPC", async
   const info = await client.call("bridge.getInfo");
 
   assert.equal(info.extensionConnected, true);
+  assert.equal(info.version, VERSION);
   assert.equal(info.extension.extensionId, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   assert.equal(info.transport.type, "local-pipe-jsonrpc");
 

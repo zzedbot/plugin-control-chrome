@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Universal Chrome Agent Bridge",
-  "version": "0.1.0",
+  "version": "0.1.12",
   "description": "Allows explicitly authorized local AI agents to control Chrome through a native bridge.",
   "permissions": [
     "alarms",

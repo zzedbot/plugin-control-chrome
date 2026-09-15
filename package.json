@@ -1,6 +1,6 @@
 {
   "name": "universal-chrome-agent-bridge",
-  "version": "0.1.0",
+  "version": "0.1.12",
   "description": "Clean-room Chrome control bridge for MCP and JSON-RPC agents.",
   "type": "module",
   "license": "MIT",
@@ -11,7 +11,9 @@
   },
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/native-host.mjs && node --check src/bridge-client.mjs && node --check src/mcp-server.mjs && node --check extension/background.js",
+    "test:chrome": "node scripts/chrome-e2e.mjs",
+    "test:chrome:foreign-frame": "node scripts/chrome-e2e.mjs --require-foreign-frame",
+    "check": "node --check src/native-host.mjs && node --check src/bridge-client.mjs && node --check src/mcp-server.mjs && node --check extension/background.js && node --check extension/debugger-controller.js && node --check extension/foreign-frame-monitor.js && node --check scripts/chrome-e2e.mjs && node --check extension/monitor-injection.js && node --check scripts/chrome-e2e-preflight.mjs && node --check scripts/install-host.mjs",
     "build:host": "node scripts/build-native-host.mjs",
     "install:host": "node scripts/install-host.mjs",
     "uninstall:host": "node scripts/uninstall-host.mjs"

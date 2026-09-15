@@ -1,3 +1,7 @@
+import { expandFrameIdSubtree, installMonitorsForTab, isMonitorablePageFrame } from "./monitor-injection.js";
+import { createDebuggerController } from "./debugger-controller.js";
+import { FOREIGN_FRAME_MONITOR_KEY, installForeignFrameMonitor, removeForeignFrameMonitor, readForeignFrameMonitorDiagnostics } from "./foreign-frame-monitor.js";
+
 const HOST_NAME = "org.universal_browser.bridge";
 const CDP_VERSION = "1.3";
 const MAX_EVENTS = 1000;
@@ -7,8 +11,18 @@ let connected = false;
 let lastError = "";
 let reconnectTimer;
 let eventSequence = 0;
-const attachedTabs = new Set();
 const events = [];
+
+const debuggerController = createDebuggerController({
+  debuggerApi: chrome.debugger,
+  cdpVersion: CDP_VERSION,
+  installMonitor: installForeignFrameMonitorInTab,
+  diagnoseFailure: readMonitorDiagnosticsInTab,
+  removeMonitor: removeForeignFrameMonitorFromTab
+});
+const { attachedTabs, controlledTabs } = debuggerController;
+const monitoredDocumentsByTab = new Map();
+const neutralizedFrameIdsByTab = new Map();
 
 chrome.runtime.onInstalled.addListener(async () => {
   const current = await chrome.storage.local.get({ enabled: true, blockedHosts: [] });
@@ -40,11 +54,30 @@ chrome.debugger.onEvent.addListener((source, method, params) => {
 });
 
 chrome.debugger.onDetach.addListener((source, reason) => {
-  if (source.tabId != null) attachedTabs.delete(source.tabId);
+  if (source.tabId != null) debuggerController.handleDetached(source.tabId);
   recordEvent({ source, method: "Debugger.detached", params: { reason } });
 });
 
-chrome.tabs.onRemoved.addListener((tabId) => attachedTabs.delete(tabId));
+chrome.tabs.onRemoved.addListener((tabId) => {
+  debuggerController.forgetTab(tabId);
+  monitoredDocumentsByTab.delete(tabId);
+  neutralizedFrameIdsByTab.delete(tabId);
+});
+chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+  const wasControlled = controlledTabs.has(removedTabId);
+  debuggerController.forgetTab(removedTabId);
+  monitoredDocumentsByTab.delete(removedTabId);
+  neutralizedFrameIdsByTab.delete(removedTabId);
+  if (wasControlled) {
+    recordEvent({ source: { tabId: removedTabId }, method: "Browser.tabReplaced", params: { addedTabId } });
+  }
+});
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === "loading" && controlledTabs.has(tabId)) refreshForeignFrameMonitor(tabId);
+});
+chrome.webNavigation.onCommitted.addListener(({ tabId }) => {
+  if (controlledTabs.has(tabId)) refreshForeignFrameMonitor(tabId);
+});
 
 function connectNative(force = false) {
   if (connected && !force) return;
@@ -53,16 +86,18 @@ function connectNative(force = false) {
   }
   clearTimeout(reconnectTimer);
   try {
-    nativePort = chrome.runtime.connectNative(HOST_NAME);
-    nativePort.onMessage.addListener(onNativeMessage);
-    nativePort.onDisconnect.addListener(() => {
+    const port = chrome.runtime.connectNative(HOST_NAME);
+    nativePort = port;
+    port.onMessage.addListener((message) => onNativeMessage(message, port));
+    port.onDisconnect.addListener(() => {
+      if (nativePort !== port) return;
       connected = false;
       lastError = chrome.runtime.lastError?.message || "Native host disconnected";
       reconnectTimer = setTimeout(connectNative, 2000);
     });
     connected = true;
     lastError = "";
-    nativePort.postMessage({
+    port.postMessage({
       type: "hello",
       extensionId: chrome.runtime.id,
       extensionVersion: chrome.runtime.getManifest().version,
@@ -75,13 +110,13 @@ function connectNative(force = false) {
   }
 }
 
-async function onNativeMessage(message) {
+async function onNativeMessage(message, port = nativePort) {
   if (message?.type !== "request" || message.id == null) return;
   try {
     const result = await execute(message.method, message.params || {});
-    nativePort.postMessage({ type: "response", id: message.id, result });
+    port.postMessage({ type: "response", id: message.id, result });
   } catch (error) {
-    nativePort.postMessage({
+    port.postMessage({
       type: "response",
       id: message.id,
       error: {
@@ -104,6 +139,7 @@ async function execute(method, params) {
         version: chrome.runtime.getManifest().version,
         type: "extension",
         extensionId: chrome.runtime.id,
+        compatibility: { foreignFrameMonitor: "remove-after-blank-v11", debuggerState: "generation-v4", monitorDiagnostics: "counts-v2" },
         capabilities: capabilityList()
       };
     case "browser.listTabs":
@@ -121,9 +157,17 @@ async function execute(method, params) {
       if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
       return tab;
     }
-    case "browser.claimTab":
-      await ensureDebugger(requireTabId(params));
-      return chrome.tabs.get(requireTabId(params));
+    case "browser.claimTab": {
+      const tabId = requireTabId(params);
+      try {
+        await assertTabNotBlocked(tabId, settings);
+        await ensureDebugger(tabId);
+        return await chrome.tabs.get(tabId);
+      } catch (error) {
+        const stage = error.data?.stage || "claim";
+        throw codedError(error.code || "BROWSER_ERROR", `browser.claimTab/${stage}: ${error.message || String(error)}`, error.data);
+      }
+    }
     case "browser.detachTab":
       await detachDebugger(requireTabId(params));
       return { detached: true };
@@ -226,21 +270,124 @@ async function authorizedTab(params, settings) {
 }
 
 async function ensureDebugger(tabId) {
-  if (attachedTabs.has(tabId)) return;
-  try {
-    await chrome.debugger.attach({ tabId }, CDP_VERSION);
-    attachedTabs.add(tabId);
-    await chrome.debugger.sendCommand({ tabId }, "Page.enable");
-    await chrome.debugger.sendCommand({ tabId }, "Runtime.enable");
-  } catch (error) {
-    if (!String(error.message).includes("already attached")) throw error;
-    attachedTabs.add(tabId);
-  }
+  return debuggerController.ensure(tabId);
 }
 
 async function detachDebugger(tabId) {
-  if (!attachedTabs.has(tabId)) return;
-  try { await chrome.debugger.detach({ tabId }); } finally { attachedTabs.delete(tabId); }
+  return debuggerController.detach(tabId);
+}
+
+async function installForeignFrameMonitorInTab(tabId) {
+  const installed = monitoredDocumentsByTab.get(tabId) || new Set();
+  const neutralizedFrameIds = neutralizedFrameIdsByTab.get(tabId) || new Set();
+  monitoredDocumentsByTab.set(tabId, installed);
+  neutralizedFrameIdsByTab.set(tabId, neutralizedFrameIds);
+  const getTrackedFrames = async (target) => {
+    const frames = await chrome.webNavigation.getAllFrames(target) || [];
+    for (const frame of frames) {
+      if (isForeignExtensionUrl(frame.url)) neutralizedFrameIds.add(frame.frameId);
+    }
+    expandFrameIdSubtree(frames, neutralizedFrameIds);
+    return frames;
+  };
+  await installMonitorsForTab({
+    tabId,
+    installed,
+    getAllFrames: getTrackedFrames,
+    isInjectableFrame: (frame) => isMonitorablePageFrame(frame, chrome.runtime.id, neutralizedFrameIds),
+    executeMonitor: executeForeignFrameMonitor
+  });
+  await waitForForeignExtensionFramesToClear(tabId);
+}
+
+async function removeForeignFrameMonitorFromTab(tabId) {
+  try {
+    const frames = await chrome.webNavigation.getAllFrames({ tabId });
+    const documentIds = (frames || [])
+      .filter((frame) => frame.documentId && !frame.errorOccurred && !isForeignExtensionUrl(frame.url))
+      .map((frame) => frame.documentId);
+    if (documentIds.length === 0) return;
+    await chrome.scripting.executeScript({
+      target: { tabId, documentIds: [...new Set(documentIds)] },
+      func: removeForeignFrameMonitor,
+      args: [FOREIGN_FRAME_MONITOR_KEY],
+      injectImmediately: true
+    });
+  } catch {
+  } finally {
+    monitoredDocumentsByTab.delete(tabId);
+    neutralizedFrameIdsByTab.delete(tabId);
+  }
+}
+
+async function readMonitorDiagnosticsInTab(tabId) {
+  const frames = await chrome.webNavigation.getAllFrames({ tabId }) || [];
+  const pageFrames = frames.filter(isInjectableFrame);
+  const documents = [];
+  for (const frame of pageFrames) {
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId, documentIds: [frame.documentId] },
+        func: readForeignFrameMonitorDiagnostics,
+        args: [FOREIGN_FRAME_MONITOR_KEY]
+      });
+      documents.push(...results.map(({ result }) => result));
+    } catch { documents.push({ diagnosticUnavailable: true }); }
+  }
+  return { pageFrameCount: pageFrames.length,
+    foreignFrameCount: frames.filter((frame) => isForeignExtensionUrl(frame.url)).length,
+    documents };
+}
+
+function executeForeignFrameMonitor(target) {
+  return chrome.scripting.executeScript({
+    target,
+    func: installForeignFrameMonitor,
+    args: [FOREIGN_FRAME_MONITOR_KEY, chrome.runtime.id],
+    injectImmediately: true
+  });
+}
+
+function isForeignExtensionUrl(value) {
+  if (typeof value !== "string" || !value.startsWith("chrome-extension://")) return false;
+  try {
+    const url = new URL(value);
+    return url.hostname.length > 0 && url.hostname !== chrome.runtime.id;
+  } catch {
+    return false;
+  }
+}
+
+function isInjectableFrame(frame) {
+  return isMonitorablePageFrame(frame, chrome.runtime.id, neutralizedFrameIdsByTab.get(frame?.tabId));
+}
+
+async function waitForForeignExtensionFramesToClear(tabId, timeoutMs = 1000) {
+  const deadline = Date.now() + timeoutMs;
+  let consecutiveClearChecks = 0;
+  while (Date.now() < deadline) {
+    const frames = await chrome.webNavigation.getAllFrames({ tabId });
+    const neutralizedFrameIds = neutralizedFrameIdsByTab.get(tabId) || new Set();
+    const activeFrameIds = new Set((frames || []).map((frame) => frame.frameId));
+    const hasPendingNeutralizedFrame = [...neutralizedFrameIds].some((frameId) => activeFrameIds.has(frameId));
+    if (!(frames || []).some((frame) => isForeignExtensionUrl(frame.url)) && !hasPendingNeutralizedFrame) {
+      consecutiveClearChecks += 1;
+      if (consecutiveClearChecks >= 3) {
+        neutralizedFrameIds.clear();
+        return;
+      }
+    } else {
+      consecutiveClearChecks = 0;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw codedError("FOREIGN_FRAME_MONITOR_FAILED", "A foreign extension frame did not become inert before debugger attachment");
+}
+
+function refreshForeignFrameMonitor(tabId) {
+  debuggerController.refresh(tabId).catch((error) => {
+    recordEvent({ source: { tabId }, method: "Bridge.foreignFrameMonitorFailed", params: { message: error.message || String(error) } });
+  });
 }
 
 async function sendCdp(tabId, method, params = {}) {

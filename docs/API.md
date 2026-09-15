@@ -101,3 +101,7 @@ These methods fail with `SENSITIVE_METADATA_APPROVAL_REQUIRED` until explicitly 
 | `LOCATOR_NOT_FOUND` | Locator matched no visible element |
 | `LOCATOR_AMBIGUOUS` | Locator matched more than one visible element |
 | `BROWSER_TIMEOUT` | Extension operation exceeded its timeout |
+| `FOREIGN_FRAME_MONITOR_FAILED` | The monitor could not cover all active page documents or neutralize foreign extension frames |
+| `DEBUGGER_INITIALIZATION_CANCELLED` | A detach or tab lifecycle event invalidated initialization; reread state before retrying |
+
+`browser.getInfo` includes compatibility markers for the monitor and debugger lifecycle implementation. The latest source reports `foreignFrameMonitor: "remove-after-blank-v11"` and `debuggerState: "generation-v4"`. `browser.claimTab` errors include a stage prefix (`foreign-frame-monitor`, `debugger.attach`, `Page.enable`, `Runtime.enable`, or `claim`). Debugger initialization failures may include bounded monitor counts for diagnosis; they do not include foreign extension URLs or contents.

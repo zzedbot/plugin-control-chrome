@@ -41,6 +41,7 @@ Run `node "<skill-root>/scripts/doctor.mjs"`. It emits one JSON report and does 
 | `LOCATOR_NOT_FOUND` | The semantic locator matched no visible element. | Re-read DOM or accessibility state, check the current tab and page, then build a narrower semantic locator. Do not jump to coordinates after one failure. |
 | `LOCATOR_AMBIGUOUS` | The semantic locator matched more than one visible element. | Re-read state and add stable role/name, label, exact text, test ID, or CSS evidence until one visible element remains. |
 | `BROWSER_TIMEOUT` | A browser operation exceeded its timeout and may have partially completed. | Recheck bridge status and current target state. Determine whether the prior action occurred before deciding whether to retry. |
+| `FOREIGN_FRAME_MONITOR_FAILED` | The controlled-tab monitor could not be installed before debugger attachment. | Re-read the tab and extension status, reload the unpacked extension if its files changed, and retry one claim. Do not disable other extensions or broaden Chrome flags as a workaround. |
 
 ## Multiple instances or tabs
 

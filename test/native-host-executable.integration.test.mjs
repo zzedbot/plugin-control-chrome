@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { BridgeClient } from "../src/bridge-client.mjs";
 import { encodeNativeMessage } from "../src/native-framing.mjs";
+import { VERSION } from "../src/version.mjs";
 
 test("built Native Messaging executable starts and exposes bridge status", async (t) => {
   const executable = path.resolve("dist", process.platform === "win32" ? "universal-browser-host.exe" : "universal-browser-host");
@@ -31,6 +32,7 @@ test("built Native Messaging executable starts and exposes bridge status", async
   const info = await new BridgeClient(descriptor).call("bridge.getInfo");
 
   assert.equal(info.extensionConnected, true);
+  assert.equal(info.version, VERSION, "Rebuild the native host after a version change");
   assert.equal(info.extension.extensionVersion, "sea-test");
 });
 

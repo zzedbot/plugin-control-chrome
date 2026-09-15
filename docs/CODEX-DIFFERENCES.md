@@ -19,6 +19,7 @@ Because the OpenAI extension is not publicly source-licensed, exact internal equ
 | Browser surface | User's existing Chrome profile | User's existing Chrome profile | Equivalent |
 | Extension platform | Chrome extension | Chrome Manifest V3 extension | Equivalent role |
 | Browser control | Chrome extension APIs, debugger/CDP, higher-level browser API | Chrome extension APIs, debugger/CDP, clean-room locator API | Same primitives; different implementation |
+| Foreign extension frame isolation | Runtime monitor on controlled tabs before debugger attachment | Clean-room runtime monitor with the same boundary and lifecycle | Functionally aligned; implementation and private lease model differ |
 | Desktop bridge | OpenAI Native Messaging Host | Independent Native Messaging Host | Same pattern; incompatible protocol |
 | Chrome-to-host transport | Native Messaging over stdio | Native Messaging over stdio | Equivalent |
 | Host discovery | Codex privileged browser runtime/native pipe bridge | Descriptor-based local named pipe/Unix socket discovery | Same local-IPC role; different discovery/authentication |
@@ -79,4 +80,4 @@ Not reused:
 
 This implementation is not wire-compatible with the OpenAI extension or Codex Native Host. Third-party software must call the supplied MCP server, JSON-RPC bridge, or JavaScript client.
 
-Feature parity can be extended without changing the architecture. The main remaining production-grade gaps are integrated consent UI, secure credential entry, Codex's private visual reasoning/orchestration, richer download lifecycle management, signed distribution, and security hardening.
+Feature parity can be extended without changing the architecture. The controlled-tab mitigation for the previously observed Chrome 152+ foreign-extension-frame debugger incompatibility is covered by simulated API/DOM tests and a real Chrome 152 regression using a web-accessible Surfingkeys frame. The main remaining production-grade gaps are integrated consent UI, secure credential entry, Codex's private visual reasoning/orchestration, richer download lifecycle management, signed distribution, and broader security hardening.

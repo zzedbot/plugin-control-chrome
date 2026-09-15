@@ -26,6 +26,7 @@ It is independent software. It does **not** contain OpenAI code, binaries, exten
 - Mouse clicks, text input, key presses, scrolling, file inputs, and JavaScript dialogs
 - PNG/JPEG screenshots
 - Policy-allowlisted raw Chrome DevTools Protocol commands and buffered CDP events
+- Codex-style runtime isolation of foreign extension frames on controlled tabs for Chrome 152+
 - Optional history, bookmark, and download metadata search
 - Per-site allow/block policy, sensitive-metadata gate, CDP allowlist, and a second extension-side kill switch/blocklist
 - Authenticated local named-pipe/Unix-socket JSON-RPC
@@ -79,6 +80,23 @@ The automated native-host installer has been designed for all three platforms. T
    ```
 
 PowerShell quoting varies by host. Third-party applications should normally call the MCP server or import `src/bridge-client.mjs` instead of shelling out.
+
+After reloading the unpacked extension, run a real Chrome end-to-end test with:
+
+```powershell
+npm.cmd run test:chrome
+```
+
+The test checks the running host and extension versions and compatibility markers before opening a tab. After changing the native host, rebuild and reinstall it; the installer registers a hash-named executable without overwriting a running host. Chrome uses the new executable on its next native connection. The latest runtime markers are `remove-after-blank-v11` and `generation-v4`.
+
+To exercise Chrome 152+'s foreign-extension-frame isolation, provide a known, non-sensitive test extension resource URL through `UNIVERSAL_BROWSER_E2E_FOREIGN_FRAME_URL`. The test opens a loopback fixture, claims it, verifies frame neutralization, reads the DOM, clicks a button, verifies the result, and cleans up its tab.
+
+```powershell
+$env:UNIVERSAL_BROWSER_E2E_FOREIGN_FRAME_URL = "chrome-extension://EXTENSION_ID/web-accessible-test-page.html"
+npm.cmd run test:chrome:foreign-frame
+```
+
+The foreign-frame command fails rather than reporting success when the URL is omitted, so the core regression cannot be accidentally skipped. The fixture reports its own frame-neutralization state as visible text; verification uses `browser.readText` and does not require a raw CDP call or a policy change.
 
 ## MCP configuration
 
