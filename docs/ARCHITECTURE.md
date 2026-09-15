@@ -47,6 +47,8 @@ The extension uses two control planes:
 
 The high-level locator API is implemented on top of DOM inspection plus CDP input dispatch. It intentionally exposes a smaller surface than upstream Playwright.
 
+Pointer actions also inject a top-frame `lingee-agent-cursor` overlay. Its closed Shadow DOM contains a visible pointer and click pulse, uses `pointer-events: none`, and is recreated if page code removes its host. The overlay follows semantic clicks, coordinate clicks, mouse moves, wheel coordinates, and drag steps, then fades after inactivity. Script injection is best effort on restricted Chrome pages, so visual rendering never changes whether the underlying input action is allowed or dispatched. Detaching control removes the overlay.
+
 ### Native Messaging Host
 
 `src/native-host.mjs` is packaged as a standalone executable with Node's Single Executable Application facility. Chrome starts it using a manifest whose `allowed_origins` contains only the installed extension ID.

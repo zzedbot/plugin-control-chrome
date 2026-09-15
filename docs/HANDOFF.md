@@ -2,21 +2,22 @@
 
 ## 最新续作状态（2026-09-15，本节优先于下方历史交接）
 
-0.1.12/remove-after-blank-v11 已通过真实 Chrome 152 的基础 E2E，以及 10/10 轮 Surfingkeys 增强 iframe 压力回归。随后按用户指定，将产品名统一为 **Lingee Chrome Agent Bridge**，并把 `https://test.lingee.com/favicon-32x32.png` 的原始 48×48 PNG 配置为扩展和工具栏图标。源码、Host 与部署目录已推进到 0.1.13；待用户重新加载确认运行版本、名称和图标。Native Messaging 主机名等内部兼容标识保持不变。
+0.1.12/remove-after-blank-v11 已通过真实 Chrome 152 的基础 E2E，以及 10/10 轮 Surfingkeys 增强 iframe 压力回归。随后按用户指定，将产品名统一为 **Lingee Chrome Agent Bridge**，并把 `https://test.lingee.com/favicon-32x32.png` 的原始 48×48 PNG 配置为扩展和工具栏图标。0.1.14 新增可见虚拟鼠标：语义点击、坐标移动/点击、滚轮和拖拽都会显示 Lingee 箭头，点击带脉冲反馈；待用户重新加载后执行真实 Chrome 验收。Native Messaging 主机名等内部兼容标识保持不变。
 
-- `src/version.mjs` 让 Host/MCP 版本统一来自 package.json；0.1.13 Host 已构建安装，manifest 与图标已同步。安装器使用带构建哈希的文件名，避免覆盖运行中的旧文件。
+- `src/version.mjs` 让 Host/MCP 版本统一来自 package.json；0.1.14 Host 已构建安装，manifest、图标和 `virtual-cursor.js` 已同步。安装器使用带构建哈希的文件名，避免覆盖运行中的旧文件。
+- 新增 `extension/virtual-cursor.js`，使用封闭 Shadow DOM、无命中测试的顶层覆盖层；动作失败与光标绘制失败相互独立，detach 时清理。E2E 通过 `overlay-v1` 标记和页面宿主状态验证真实注入。
 - 浏览器控制 Skill 已更名为 `lingee-chrome-control`，UI 显示名为 `Lingee Chrome Control`；仓库和本机安装目录均已迁移，旧目录不再保留。
 - E2E 在打开标签页前检查 Host/扩展版本及兼容性标记；输出运行版本证据。外部 frame 检查改为读取测试页自行呈现的中和状态，不调用原始 CDP。
 - 修复 onDetach 异步清理与重新 ensure 的竞态，新增等待屏障。晚到的 detach 事件会安全取消初始化，清理后可重试；不假设 Chrome 事件携带本项目世代信息。
 - 新增 `extension/monitor-injection.js`：按真实注入返回 documentId 缓存，重新枚举确认活动文档覆盖，并使用最多 20 轮、每轮 25ms 的有界稳定化重试。修复 fallback 成功仍误报失败、缓存旧 documentId 及销毁中子文档造成的瞬时误判。
 - 监控器同时观察 src/srcdoc；发现外部扩展 frame 后移除 srcdoc、导航至 about:blank，并在安全提交的 load 事件中移除元素；后台等待归因 frameId 消失后再附加调试器。
-- 源码五个运行文件已复制到原部署目录，包括新增的 **monitor-injection.js**。后续同步必须包含该文件。
-- 最新标记为 **remove-after-blank-v11 / generation-v4 / counts-v2**；下方历史示例中的旧标记已过时。
+- 源码六个 JavaScript 运行文件已复制到原部署目录，包括 **monitor-injection.js** 和 **virtual-cursor.js**。后续同步必须包含这两个文件。
+- 最新标记为 **remove-after-blank-v11 / generation-v4 / counts-v2 / overlay-v1**；下方历史示例中的旧标记已过时。
 - 已确认 Surfingkeys 本机 manifest 版本 **1.19.1**，`pages/frontend.html` 属于 `<all_urls>` 的 web_accessible_resources；该 URL 的真实回归已通过。
 - 最终测试和审查记录见 [本轮验证记录](./VALIDATION-2026-09-11.md)。当前修改均保留在 main 工作区，尚未提交。
 - 独立终审确认一个剩余 P2 限制：已连接 host 在监控安装后才创建 shadow root 时，根发现可能遗漏。架构文档已明确此限制，后续需设计可控成本的发现机制；现有测试通过不代表覆盖此场景。
 
-下一步：用户重新加载扩展后确认 0.1.13 的运行版本、名称和图标。可后续处理已记录的 late shadow-root 发现限制。
+下一步：用户重新加载扩展后确认 0.1.14 和 `overlay-v1`，执行基础真实 E2E，并保存截图目视检查箭头和点击脉冲。可后续处理已记录的 late shadow-root 发现限制。
 
 ---
 

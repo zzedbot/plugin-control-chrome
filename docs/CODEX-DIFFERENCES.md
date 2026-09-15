@@ -42,6 +42,7 @@ Because the OpenAI extension is not publicly source-licensed, exact internal equ
 | Playwright-style selectors | Partially equivalent | CSS, role/name, label, text, test ID; not the full Codex subset or upstream Playwright |
 | Click, fill, keypress, scroll | Implemented | CDP Input-backed |
 | Drag and coordinate-level computer use | Implemented at execution layer | Screenshots, coordinate click, move, drag, wheel, key and text are available; visual reasoning belongs to the calling model |
+| Visible virtual pointer | Implemented | Closed-Shadow-DOM pointer follows mouse, click, wheel, and drag actions; exact Codex styling and internals are proprietary |
 | Screenshots | Implemented | PNG/JPEG and beyond-viewport option |
 | File chooser/input upload | Implemented with differences | CSS file-input path; no private secure picker workflow |
 | JavaScript dialogs | Implemented | — |

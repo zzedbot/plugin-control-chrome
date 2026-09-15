@@ -123,6 +123,13 @@ E2E fixture 新增空白文档复用尝试：页面先注册 load 处理器并�
 - 测试、设计文档、交接路径及调用示例已同步；本机安装目录也迁移到 `C:\Users\fcliq\.codex\skills\lingee-chrome-control`，旧目录不再保留。
 - 官方 `quick_validate.py` 对仓库副本和安装副本均验证通过。
 
+### 0.1.14 可见虚拟鼠标
+
+- 新增 `extension/virtual-cursor.js`：封闭 Shadow DOM 内绘制白色、Lingee 紫色描边的箭头，点击显示脉冲，1.8 秒无动作后淡出。
+- 已接入语义点击、坐标移动/点击、滚轮和逐步拖拽；解除调试器控制时清理覆盖层，受限页面无法注入时不阻断底层输入。
+- `browser.getInfo` 新增 `virtualCursor: "overlay-v1"` 与 `virtualCursor` capability；真实 E2E 前置检查会拒绝旧扩展，E2E 会验证覆盖层宿主、状态和坐标。
+- 0.1.14 Host 已构建并安装；`npm run check` 与 `npm test`（78/78）通过。部署目录已同步，待用户重新加载扩展后执行真实 Chrome 与截图验收。
+
 本轮公开桥接口读取结果：
 
 - Host 连接正常，但运行版本仍为 0.1.0。

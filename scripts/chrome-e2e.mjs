@@ -55,6 +55,18 @@ try {
   const before = await bridge.call("browser.domSnapshot", { tabId, maxNodes: 50, maxTextChars: 2000 });
   assert.ok(before.nodes.some(({ selector }) => selector === "#test-button"), "Test button was not found");
 
+  const button = before.nodes.find(({ selector }) => selector === "#test-button");
+  stage = "virtualCursor";
+  const cursorX = button.rect.x + button.rect.width / 2;
+  const cursorY = button.rect.y + button.rect.height / 2;
+  await bridge.call("browser.mouseMove", { tabId, x: cursorX, y: cursorY });
+  const cursorState = await bridge.call("browser.cdp", {
+    tabId,
+    command: "Runtime.evaluate",
+    params: { expression: `(() => { const node = document.querySelector('lingee-agent-cursor'); return node && { marker: node.dataset.lingeeAgentCursor, state: node.dataset.state, x: node.dataset.x, y: node.dataset.y }; })()`, returnByValue: true }
+  });
+  assert.deepEqual(cursorState.result.value, { marker: "overlay-v1", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) });
+
   if (foreignFrameUrl) {
     stage = "verifyForeignFrame";
     await waitForText(bridge, tabId, /外部框架已移除/);
@@ -66,7 +78,7 @@ try {
   const after = await bridge.call("browser.readText", { tabId, maxChars: 2000 });
   assert.match(after.text, /点击成功/);
 
-  process.stdout.write(`${JSON.stringify({ ok: true, instanceId: selected.instanceId, ...runtime, foreignFrameChecked: Boolean(foreignFrameUrl) })}\n`);
+  process.stdout.write(`${JSON.stringify({ ok: true, instanceId: selected.instanceId, ...runtime, virtualCursorChecked: true, foreignFrameChecked: Boolean(foreignFrameUrl) })}\n`);
 } catch (error) {
   primaryError = error;
   error.message = `${stage}: ${error.message}`;
