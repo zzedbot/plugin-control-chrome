@@ -116,6 +116,13 @@ E2E fixture 新增空白文档复用尝试：页面先注册 load 处理器并�
 - 0.1.13 Host 已构建安装，manifest 与图标已同步至部署目录；源文件与部署文件哈希一致。
 - `npm run check` 与 `npm test`（76/76）通过；待用户重新加载确认运行版本和图标显示。
 
+### Lingee Chrome Control Skill 更名
+
+- 仓库目录从 `skills/control-universal-chrome` 迁移到 `skills/lingee-chrome-control`，frontmatter 名称改为 `lingee-chrome-control`。
+- `agents/openai.yaml` 的显示名为 `Lingee Chrome Control`，默认提示显式引用 `$lingee-chrome-control`。
+- 测试、设计文档、交接路径及调用示例已同步；本机安装目录也迁移到 `C:\Users\fcliq\.codex\skills\lingee-chrome-control`，旧目录不再保留。
+- 官方 `quick_validate.py` 对仓库副本和安装副本均验证通过。
+
 本轮公开桥接口读取结果：
 
 - Host 连接正常，但运行版本仍为 0.1.0。

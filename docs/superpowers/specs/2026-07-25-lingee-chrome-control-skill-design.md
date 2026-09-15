@@ -1,4 +1,4 @@
-# 通用 Chrome 控制 Skill 设计
+# Lingee Chrome Control Skill 设计
 
 ## 目标
 
@@ -6,7 +6,7 @@
 
 Skill 同时满足两个分发目标：
 
-- 在仓库 `skills/control-universal-chrome/` 中归档并由 Git 管理。
+- 在仓库 `skills/lingee-chrome-control/` 中归档并由 Git 管理。
 - 复制安装到用户的 Codex Skills 目录，供当前环境立即发现和测试。
 
 ## 兼容范围
@@ -18,7 +18,7 @@ Skill 不依赖 Codex 私有的 `browser-client`、Node REPL、`agent.browsers.*
 ## 目录结构
 
 ```text
-skills/control-universal-chrome/
+skills/lingee-chrome-control/
 ├── SKILL.md
 ├── agents/
 │   └── openai.yaml

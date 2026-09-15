@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repoRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const skillRoot = join(repoRoot, "skills", "control-universal-chrome");
+const skillRoot = join(repoRoot, "skills", "lingee-chrome-control");
 
 async function exists(path) {
   try {
@@ -157,7 +157,7 @@ test("skill metadata and workflow expose the cross-tool contract", async () => {
   const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
   const metadata = await readFile(join(skillRoot, "agents/openai.yaml"), "utf8");
 
-  assert.match(skill, /^---\r?\nname: control-universal-chrome\r?\ndescription: Use when /);
+  assert.match(skill, /^---\r?\nname: lingee-chrome-control\r?\ndescription: Use when /);
   for (const resource of [
     "references/tools.md",
     "references/security.md",
@@ -189,9 +189,9 @@ test("skill metadata and workflow expose the cross-tool contract", async () => {
     cursor = next;
   }
 
-  assert.match(metadata, /display_name: "通用 Chrome 控制"/);
-  assert.match(metadata, /short_description: "通过标准 MCP 或命令行安全控制现有 Chrome"/);
-  assert.match(metadata, /default_prompt: "Use \$control-universal-chrome to inspect and safely operate my existing Chrome tab\."/);
+  assert.match(metadata, /display_name: "Lingee Chrome Control"/);
+  assert.match(metadata, /short_description: "通过 Lingee Bridge 安全控制现有 Chrome"/);
+  assert.match(metadata, /default_prompt: "Use \$lingee-chrome-control to inspect and safely operate my existing Chrome tab\."/);
 });
 
 test("security contract requires approval and forbids secret-store access", async () => {

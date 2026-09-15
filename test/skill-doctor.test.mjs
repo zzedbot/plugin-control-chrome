@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const doctorUrl = pathToFileURL(
-  path.join(workspaceRoot, "skills", "control-universal-chrome", "scripts", "doctor.mjs")
+  path.join(workspaceRoot, "skills", "lingee-chrome-control", "scripts", "doctor.mjs")
 ).href;
 
 async function doctorModule() {

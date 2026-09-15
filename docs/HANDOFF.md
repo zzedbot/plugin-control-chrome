@@ -5,6 +5,7 @@
 0.1.12/remove-after-blank-v11 已通过真实 Chrome 152 的基础 E2E，以及 10/10 轮 Surfingkeys 增强 iframe 压力回归。随后按用户指定，将产品名统一为 **Lingee Chrome Agent Bridge**，并把 `https://test.lingee.com/favicon-32x32.png` 的原始 48×48 PNG 配置为扩展和工具栏图标。源码、Host 与部署目录已推进到 0.1.13；待用户重新加载确认运行版本、名称和图标。Native Messaging 主机名等内部兼容标识保持不变。
 
 - `src/version.mjs` 让 Host/MCP 版本统一来自 package.json；0.1.13 Host 已构建安装，manifest 与图标已同步。安装器使用带构建哈希的文件名，避免覆盖运行中的旧文件。
+- 浏览器控制 Skill 已更名为 `lingee-chrome-control`，UI 显示名为 `Lingee Chrome Control`；仓库和本机安装目录均已迁移，旧目录不再保留。
 - E2E 在打开标签页前检查 Host/扩展版本及兼容性标记；输出运行版本证据。外部 frame 检查改为读取测试页自行呈现的中和状态，不调用原始 CDP。
 - 修复 onDetach 异步清理与重新 ensure 的竞态，新增等待屏障。晚到的 detach 事件会安全取消初始化，清理后可重试；不假设 Chrome 事件携带本项目世代信息。
 - 新增 `extension/monitor-injection.js`：按真实注入返回 documentId 缓存，重新枚举确认活动文档覆盖，并使用最多 20 轮、每轮 25ms 的有界稳定化重试。修复 fallback 成功仍误报失败、缓存旧 documentId 及销毁中子文档造成的瞬时误判。
@@ -72,7 +73,7 @@ flowchart LR
 | `src/mcp-server.mjs` | MCP stdio 工具适配 |
 | `src/policy.mjs` | 站点许可/阻止、敏感元数据开关、CDP 方法许可 |
 | `scripts/chrome-e2e.mjs` | 本机真实 Chrome 端到端测试夹具 |
-| `skills/control-universal-chrome/` | 跨工具通用 Skill、调用脚本、诊断脚本及安全/工具/排障参考 |
+| `skills/lingee-chrome-control/` | 跨工具通用 Skill、调用脚本、诊断脚本及安全/工具/排障参考 |
 
 ## 3. 本轮已经完成
 
@@ -101,7 +102,7 @@ flowchart LR
 - 新增真实浏览器 E2E 脚本，覆盖：启动本地页面、授权、打开标签、claim、读取 DOM、点击、验证结果、清理。
 - 可选外部扩展 frame 回归测试通过环境变量启用。
 - README、架构、安全、Codex 差异以及 Skill 的工具/安全/排障说明已经更新。
-- 仓库 Skill 已同步到 `C:\Users\fcliq\.codex\skills\control-universal-chrome`；此前同步后哈希一致。
+- 仓库 Skill 已同步到 `C:\Users\fcliq\.codex\skills\lingee-chrome-control`；此前同步后哈希一致。
 - 最新自动化结果：`npm run check` 通过，`npm test` 为 56/56 通过，`git diff --check` 无错误。
 
 ## 4. 当前精确断点
@@ -181,14 +182,14 @@ foreach ($name in $names) {
 
 ```powershell
 $env:UNIVERSAL_CHROME_BRIDGE_ROOT = 'E:\AI\codex\workspace\chrome'
-node 'C:\Users\fcliq\.codex\skills\control-universal-chrome\scripts\invoke.mjs' instances
+node 'C:\Users\fcliq\.codex\skills\lingee-chrome-control\scripts\invoke.mjs' instances
 ```
 
 选择新实例后调用：
 
 ```powershell
 $env:UNIVERSAL_BROWSER_INSTANCE_ID = '<新的实例 ID>'
-node 'C:\Users\fcliq\.codex\skills\control-universal-chrome\scripts\invoke.mjs' call browser.getInfo '{}'
+node 'C:\Users\fcliq\.codex\skills\lingee-chrome-control\scripts\invoke.mjs' call browser.getInfo '{}'
 ```
 
 必须确认扩展版本为 `0.1.2`，并出现类似以下兼容性标记：
@@ -271,9 +272,9 @@ npm run test:chrome:foreign-frame
  M extension/manifest.json
  M package-lock.json
  M package.json
- M skills/control-universal-chrome/references/security.md
- M skills/control-universal-chrome/references/tools.md
- M skills/control-universal-chrome/references/troubleshooting.md
+ M skills/lingee-chrome-control/references/security.md
+ M skills/lingee-chrome-control/references/tools.md
+ M skills/lingee-chrome-control/references/troubleshooting.md
 ?? extension/debugger-controller.js
 ?? extension/foreign-frame-monitor.js
 ?? scripts/chrome-e2e.mjs
@@ -301,5 +302,5 @@ npm run test:chrome:foreign-frame
 ## 10. 新会话可直接使用的续作提示
 
 ```text
-请读取 E:\AI\codex\workspace\chrome\docs\HANDOFF.md，并从“当前精确断点”继续。使用 control-universal-chrome Skill。先确认工作区和部署副本，不要重置未提交修改；重启本轮测试 Chrome 后验证 browser.getInfo 为 0.1.2 且包含兼容性标记，再运行基础真实 Chrome E2E。根据 browser.claimTab 的阶段化错误修复根因，然后完成经 manifest 验证的外部扩展 frame 回归测试。全程保持现有安全策略，最终让独立子代理审查，并运行 check、全部测试和 git diff --check。
+请读取 E:\AI\codex\workspace\chrome\docs\HANDOFF.md，并从“当前精确断点”继续。使用 lingee-chrome-control Skill。先确认工作区和部署副本，不要重置未提交修改；重启本轮测试 Chrome 后验证 browser.getInfo 为 0.1.2 且包含兼容性标记，再运行基础真实 Chrome E2E。根据 browser.claimTab 的阶段化错误修复根因，然后完成经 manifest 验证的外部扩展 frame 回归测试。全程保持现有安全策略，最终让独立子代理审查，并运行 check、全部测试和 git diff --check。
 ```

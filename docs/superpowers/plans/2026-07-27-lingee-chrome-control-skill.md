@@ -1,10 +1,10 @@
-# Universal Chrome Control Skill Implementation Plan
+# Lingee Chrome Control Skill Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build, validate, archive, and locally install a cross-tool Agent Skill that guides agents to control Chrome through Lingee Chrome Agent Bridge using standard MCP first and a Node.js CLI fallback.
 
-**Architecture:** Keep the repository copy at `skills/control-universal-chrome/` as the single source of truth. `SKILL.md` contains the browser-selection and safe-operation workflow; references contain the complete public tool map, security boundaries, and recovery guidance. Two thin Node.js scripts call the existing `src/bridge-client.mjs` without duplicating browser-control logic, and the final installation copies the validated skill to the user's Codex skills directory.
+**Architecture:** Keep the repository copy at `skills/lingee-chrome-control/` as the single source of truth. `SKILL.md` contains the browser-selection and safe-operation workflow; references contain the complete public tool map, security boundaries, and recovery guidance. Two thin Node.js scripts call the existing `src/bridge-client.mjs` without duplicating browser-control logic, and the final installation copies the validated skill to the user's Codex skills directory.
 
 **Tech Stack:** Agent Skills Markdown/YAML, Node.js 22 ESM, built-in `node:test`, Lingee Chrome Agent Bridge MCP/JSON-RPC APIs, Python skill validation utilities.
 
@@ -22,13 +22,13 @@
 
 ## File Map
 
-- `skills/control-universal-chrome/SKILL.md`: trigger and core browser workflow.
-- `skills/control-universal-chrome/agents/openai.yaml`: optional Codex UI metadata.
-- `skills/control-universal-chrome/references/tools.md`: MCP-to-bridge tool reference and common sequences.
-- `skills/control-universal-chrome/references/security.md`: approval boundaries and prohibited data access.
-- `skills/control-universal-chrome/references/troubleshooting.md`: layered diagnosis and recovery.
-- `skills/control-universal-chrome/scripts/invoke.mjs`: generic JSON CLI over the existing Bridge Client.
-- `skills/control-universal-chrome/scripts/doctor.mjs`: read-only structured diagnostics.
+- `skills/lingee-chrome-control/SKILL.md`: trigger and core browser workflow.
+- `skills/lingee-chrome-control/agents/openai.yaml`: optional Codex UI metadata.
+- `skills/lingee-chrome-control/references/tools.md`: MCP-to-bridge tool reference and common sequences.
+- `skills/lingee-chrome-control/references/security.md`: approval boundaries and prohibited data access.
+- `skills/lingee-chrome-control/references/troubleshooting.md`: layered diagnosis and recovery.
+- `skills/lingee-chrome-control/scripts/invoke.mjs`: generic JSON CLI over the existing Bridge Client.
+- `skills/lingee-chrome-control/scripts/doctor.mjs`: read-only structured diagnostics.
 - `test/skill-content.test.mjs`: skill structure, metadata, reference coverage, and safety contract.
 - `test/skill-invoke.test.mjs`: CLI parsing, root resolution, delegation, output, and errors.
 - `test/skill-doctor.test.mjs`: diagnostic checks and no-mutation behavior.
@@ -38,16 +38,16 @@
 ### Task 1: Baseline evaluation and Skill reference package
 
 **Files:**
-- Create: `skills/control-universal-chrome/SKILL.md`
-- Create: `skills/control-universal-chrome/agents/openai.yaml`
-- Create: `skills/control-universal-chrome/references/tools.md`
-- Create: `skills/control-universal-chrome/references/security.md`
-- Create: `skills/control-universal-chrome/references/troubleshooting.md`
+- Create: `skills/lingee-chrome-control/SKILL.md`
+- Create: `skills/lingee-chrome-control/agents/openai.yaml`
+- Create: `skills/lingee-chrome-control/references/tools.md`
+- Create: `skills/lingee-chrome-control/references/security.md`
+- Create: `skills/lingee-chrome-control/references/troubleshooting.md`
 - Test: `test/skill-content.test.mjs`
 
 **Interfaces:**
 - Consumes: MCP tool declarations returned by `buildTools()` in `src/mcp-server.mjs`; public error codes and policies from `docs/API.md` and `docs/SECURITY.md`.
-- Produces: skill name `control-universal-chrome`; reference links `references/tools.md`, `references/security.md`, and `references/troubleshooting.md`; UI prompt that explicitly mentions `$control-universal-chrome`.
+- Produces: skill name `lingee-chrome-control`; reference links `references/tools.md`, `references/security.md`, and `references/troubleshooting.md`; UI prompt that explicitly mentions `$lingee-chrome-control`.
 
 - [ ] **Step 1: Run baseline scenarios without the new Skill**
 
@@ -90,19 +90,19 @@ Also assert that frontmatter name is exact, description starts with `Use when`, 
 
 Run: `node --test test/skill-content.test.mjs`
 
-Expected: FAIL because `skills/control-universal-chrome/SKILL.md` and its resources do not exist.
+Expected: FAIL because `skills/lingee-chrome-control/SKILL.md` and its resources do not exist.
 
 - [ ] **Step 4: Initialize the Skill skeleton**
 
 Run the official initializer, passing deterministic UI strings:
 
 ```powershell
-python C:\Users\fcliq\.codex\skills\.system\skill-creator\scripts\init_skill.py control-universal-chrome `
+python C:\Users\fcliq\.codex\skills\.system\skill-creator\scripts\init_skill.py lingee-chrome-control `
   --path E:\AI\codex\workspace\chrome\skills `
   --resources scripts,references `
   --interface 'display_name=通用 Chrome 控制' `
   --interface 'short_description=通过标准 MCP 或命令行安全控制现有 Chrome' `
-  --interface 'default_prompt=Use $control-universal-chrome to inspect and safely operate my existing Chrome tab.'
+  --interface 'default_prompt=Use $lingee-chrome-control to inspect and safely operate my existing Chrome tab.'
 ```
 
 Delete initializer placeholders that are not part of the file map.
@@ -127,7 +127,7 @@ Run:
 
 ```powershell
 node --test test/skill-content.test.mjs
-python C:\Users\fcliq\.codex\skills\.system\skill-creator\scripts\quick_validate.py E:\AI\codex\workspace\chrome\skills\control-universal-chrome
+python C:\Users\fcliq\.codex\skills\.system\skill-creator\scripts\quick_validate.py E:\AI\codex\workspace\chrome\skills\lingee-chrome-control
 ```
 
 Expected: all tests PASS and validator prints a valid-skill result.
@@ -135,14 +135,14 @@ Expected: all tests PASS and validator prints a valid-skill result.
 - [ ] **Step 7: Commit**
 
 ```powershell
-git add test/skill-content.test.mjs skills/control-universal-chrome
+git add test/skill-content.test.mjs skills/lingee-chrome-control
 git commit -m "feat(skill): add universal Chrome control workflow"
 ```
 
 ### Task 2: Unified invocation script
 
 **Files:**
-- Create: `skills/control-universal-chrome/scripts/invoke.mjs`
+- Create: `skills/lingee-chrome-control/scripts/invoke.mjs`
 - Test: `test/skill-invoke.test.mjs`
 
 **Interfaces:**
@@ -217,21 +217,21 @@ Run:
 
 ```powershell
 node --test test/skill-invoke.test.mjs
-node --check skills/control-universal-chrome/scripts/invoke.mjs
+node --check skills/lingee-chrome-control/scripts/invoke.mjs
 ```
 
 Expected: PASS with no warnings.
 
 ```powershell
-git add test/skill-invoke.test.mjs skills/control-universal-chrome/scripts/invoke.mjs
+git add test/skill-invoke.test.mjs skills/lingee-chrome-control/scripts/invoke.mjs
 git commit -m "feat(skill): add universal bridge invocation fallback"
 ```
 
 ### Task 3: Read-only diagnostic script
 
 **Files:**
-- Create: `skills/control-universal-chrome/scripts/doctor.mjs`
-- Modify: `skills/control-universal-chrome/references/troubleshooting.md`
+- Create: `skills/lingee-chrome-control/scripts/doctor.mjs`
+- Modify: `skills/lingee-chrome-control/references/troubleshooting.md`
 - Test: `test/skill-doctor.test.mjs`
 
 **Interfaces:**
@@ -281,22 +281,22 @@ Run:
 
 ```powershell
 node --test test/skill-doctor.test.mjs
-node --check skills/control-universal-chrome/scripts/doctor.mjs
+node --check skills/lingee-chrome-control/scripts/doctor.mjs
 ```
 
 Expected: PASS with no writes outside test temporary directories.
 
 ```powershell
-git add test/skill-doctor.test.mjs skills/control-universal-chrome/scripts/doctor.mjs skills/control-universal-chrome/references/troubleshooting.md
+git add test/skill-doctor.test.mjs skills/lingee-chrome-control/scripts/doctor.mjs skills/lingee-chrome-control/references/troubleshooting.md
 git commit -m "feat(skill): add read-only bridge diagnostics"
 ```
 
 ### Task 4: Forward validation, installation, and final verification
 
 **Files:**
-- Modify only if validation exposes a gap: `skills/control-universal-chrome/**`
+- Modify only if validation exposes a gap: `skills/lingee-chrome-control/**`
 - Modify only if a regression test is required: `test/skill-*.test.mjs`
-- Install copy: `C:/Users/fcliq/.codex/skills/control-universal-chrome/**`
+- Install copy: `C:/Users/fcliq/.codex/skills/lingee-chrome-control/**`
 
 **Interfaces:**
 - Consumes: validated repository Skill and scripts from Tasks 1-3.
@@ -319,7 +319,7 @@ Run:
 
 ```powershell
 node --test test/skill-content.test.mjs test/skill-invoke.test.mjs test/skill-doctor.test.mjs
-python C:\Users\fcliq\.codex\skills\.system\skill-creator\scripts\quick_validate.py E:\AI\codex\workspace\chrome\skills\control-universal-chrome
+python C:\Users\fcliq\.codex\skills\.system\skill-creator\scripts\quick_validate.py E:\AI\codex\workspace\chrome\skills\lingee-chrome-control
 npm.cmd test
 npm.cmd run check
 git diff --check
@@ -332,7 +332,7 @@ Expected: all tests PASS, validator succeeds, static checks succeed, and `git di
 Resolve both absolute paths first. If the destination already exists and differs, stop and report the conflict instead of overwriting it. Otherwise copy the repository directory to:
 
 ```text
-C:\Users\fcliq\.codex\skills\control-universal-chrome
+C:\Users\fcliq\.codex\skills\lingee-chrome-control
 ```
 
 Do not copy `.git`, test artifacts, SDD reports, or files outside the Skill directory.
@@ -344,7 +344,7 @@ Generate sorted SHA-256 manifests for regular files under both roots using Power
 Run the installed-copy validator:
 
 ```powershell
-python C:\Users\fcliq\.codex\skills\.system\skill-creator\scripts\quick_validate.py C:\Users\fcliq\.codex\skills\control-universal-chrome
+python C:\Users\fcliq\.codex\skills\.system\skill-creator\scripts\quick_validate.py C:\Users\fcliq\.codex\skills\lingee-chrome-control
 ```
 
 Expected: manifests match and installed Skill validates.
@@ -354,7 +354,7 @@ Expected: manifests match and installed Skill validates.
 If forward testing required repository changes, commit only those tested changes:
 
 ```powershell
-git add skills/control-universal-chrome test/skill-content.test.mjs test/skill-invoke.test.mjs test/skill-doctor.test.mjs
+git add skills/lingee-chrome-control test/skill-content.test.mjs test/skill-invoke.test.mjs test/skill-doctor.test.mjs
 git commit -m "fix(skill): close universal Chrome workflow gaps"
 ```
 

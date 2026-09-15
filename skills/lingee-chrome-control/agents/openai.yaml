@@ -1,0 +1,4 @@
+interface:
+  display_name: "Lingee Chrome Control"
+  short_description: "通过 Lingee Bridge 安全控制现有 Chrome"
+  default_prompt: "Use $lingee-chrome-control to inspect and safely operate my existing Chrome tab."

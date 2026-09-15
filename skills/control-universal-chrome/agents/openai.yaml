@@ -1,4 +1,0 @@
-interface:
-  display_name: "通用 Chrome 控制"
-  short_description: "通过标准 MCP 或命令行安全控制现有 Chrome"
-  default_prompt: "Use $control-universal-chrome to inspect and safely operate my existing Chrome tab."

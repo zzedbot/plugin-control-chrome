@@ -16,7 +16,7 @@ export async function locateBridgeRoot(options = {}) {
     searched.push(root);
     if (await isBridgeRoot(root)) return root;
     throw structuredError(
-      `Universal Chrome bridge root is not valid: ${root}`,
+      `Lingee Chrome bridge root is not valid: ${root}`,
       "BRIDGE_ROOT_NOT_FOUND",
       { searched }
     );
@@ -28,7 +28,7 @@ export async function locateBridgeRoot(options = {}) {
   }
 
   throw structuredError(
-    "Universal Chrome bridge project was not found.",
+    "Lingee Chrome bridge project was not found.",
     "BRIDGE_ROOT_NOT_FOUND",
     { searched }
   );

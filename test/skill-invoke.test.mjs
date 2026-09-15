@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const invokeUrl = pathToFileURL(
-  path.join(workspaceRoot, "skills", "control-universal-chrome", "scripts", "invoke.mjs")
+  path.join(workspaceRoot, "skills", "lingee-chrome-control", "scripts", "invoke.mjs")
 ).href;
 
 async function createBridgeFixture() {
@@ -67,7 +67,7 @@ test("explicit bridge root wins", async () => {
 test("locates the bridge root upward from the Skill path", async () => {
   await withFixture(async (fixtureRoot) => {
     const { locateBridgeRoot } = await invokeModule();
-    const skillScriptDir = path.join(fixtureRoot, "skills", "control-universal-chrome", "scripts");
+    const skillScriptDir = path.join(fixtureRoot, "skills", "lingee-chrome-control", "scripts");
     await mkdir(skillScriptDir, { recursive: true });
     const unrelatedDir = await mkdtemp(path.join(os.tmpdir(), "unrelated-"));
     try {
