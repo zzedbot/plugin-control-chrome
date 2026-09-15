@@ -88,7 +88,7 @@ After reloading the unpacked extension, run a real Chrome end-to-end test with:
 npm.cmd run test:chrome
 ```
 
-The test checks the running host and extension versions and compatibility markers before opening a tab. It also verifies the centered-on-claim cursor and a subsequent mouse move. After changing the native host, rebuild and reinstall it; the installer registers a hash-named executable without overwriting a running host. Chrome uses the new executable on its next native connection. The latest runtime markers are `remove-after-blank-v11`, `generation-v4`, and `overlay-v2`.
+The test checks the running host and extension versions and compatibility markers before opening a tab. It also verifies the centered-on-claim cursor and a subsequent mouse move. After changing the native host, rebuild and reinstall it; the installer registers a hash-named executable without overwriting a running host. Chrome uses the new executable on its next native connection. The latest runtime markers are `remove-after-blank-v11`, `generation-v4`, and `overlay-v3`.
 
 To exercise Chrome 152+'s foreign-extension-frame isolation, provide a known, non-sensitive test extension resource URL through `UNIVERSAL_BROWSER_E2E_FOREIGN_FRAME_URL`. The test opens a loopback fixture, claims it, verifies frame neutralization, reads the DOM, clicks a button, verifies the result, and cleans up its tab.
 

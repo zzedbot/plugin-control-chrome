@@ -1,4 +1,4 @@
-export const VIRTUAL_CURSOR_KEY = "__lingeeChromeVirtualCursorV2";
+export const VIRTUAL_CURSOR_KEY = "__lingeeChromeVirtualCursorV3";
 
 // This function is serialized by chrome.scripting.executeScript. Keep it self-contained.
 export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move") {
@@ -10,10 +10,11 @@ export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move") {
   let created = false;
   if (!state?.host?.isConnected) {
     state?.observer?.disconnect?.();
+    globalThis.removeEventListener?.("resize", state?.onResize);
     state?.host?.remove?.();
     const host = document.createElement("lingee-agent-cursor");
     host.setAttribute("aria-hidden", "true");
-    host.setAttribute("data-lingee-agent-cursor", "overlay-v2");
+    host.setAttribute("data-lingee-agent-cursor", "overlay-v3");
     host.style.cssText = "position:fixed;inset:0;display:block;pointer-events:none;overflow:visible;z-index:2147483647;contain:strict;";
     const shadow = host.attachShadow({ mode: "closed" });
     shadow.innerHTML = `
@@ -39,8 +40,23 @@ export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move") {
       ring: shadow.querySelector("#ring"),
       observer,
       x: Number.isFinite(previousX) ? previousX : NaN,
-      y: Number.isFinite(previousY) ? previousY : NaN
+      y: Number.isFinite(previousY) ? previousY : NaN,
+      anchoredToCenter: false,
+      onResize: null
     };
+    state.onResize = () => {
+      if (!state.anchoredToCenter || !state.host.isConnected) return;
+      const width = Math.max(1, Number(globalThis.innerWidth) || 1);
+      const height = Math.max(1, Number(globalThis.innerHeight) || 1);
+      const x = Math.max(0, Math.min(width / 2, width - 1));
+      const y = Math.max(0, Math.min(height / 2, height - 1));
+      state.cursor.style.transform = `translate3d(${x}px,${y}px,0)`;
+      state.host.setAttribute("data-x", String(Math.round(x)));
+      state.host.setAttribute("data-y", String(Math.round(y)));
+      state.x = x;
+      state.y = y;
+    };
+    globalThis.addEventListener?.("resize", state.onResize, { passive: true });
     globalThis[markerKey] = state;
     created = true;
   }
@@ -64,6 +80,8 @@ export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move") {
   state.host.setAttribute("data-y", String(Math.round(y)));
   state.x = x;
   state.y = y;
+  if (phase !== "ensure") state.anchoredToCenter = rawX == null && rawY == null;
+  else if (created || !Number.isFinite(previousX) || !Number.isFinite(previousY)) state.anchoredToCenter = true;
 
   if (phase === "click") {
     state.ring.style.setProperty("--x", `${x}px`);
@@ -81,6 +99,7 @@ export function removeVirtualCursor(markerKey) {
   const state = globalThis[markerKey];
   if (!state) return false;
   state.observer?.disconnect?.();
+  globalThis.removeEventListener?.("resize", state.onResize);
   state.host?.remove?.();
   delete globalThis[markerKey];
   return true;

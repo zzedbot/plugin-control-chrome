@@ -67,7 +67,7 @@ try {
   const cursorState = await readCursorState(bridge, tabId);
   assert.deepEqual(
     { marker: cursorState.marker, state: cursorState.state, x: cursorState.x, y: cursorState.y },
-    { marker: "overlay-v2", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
+    { marker: "overlay-v3", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
   );
 
   if (foreignFrameUrl) {
@@ -132,7 +132,7 @@ async function readCursorState(client, tabId) {
 }
 
 function assertCenteredCursor(cursor) {
-  assert.equal(cursor?.marker, "overlay-v2");
+  assert.equal(cursor?.marker, "overlay-v3");
   assert.equal(cursor?.state, "move");
   assert.ok(Math.abs(Number(cursor.x) - cursor.width / 2) <= 1, "Cursor is not horizontally centered");
   assert.ok(Math.abs(Number(cursor.y) - cursor.height / 2) <= 1, "Cursor is not vertically centered");

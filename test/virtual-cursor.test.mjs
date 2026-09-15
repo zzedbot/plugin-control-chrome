@@ -4,9 +4,12 @@ import fs from "node:fs/promises";
 import { VIRTUAL_CURSOR_KEY, removeVirtualCursor, renderVirtualCursor } from "../extension/virtual-cursor.js";
 
 test("virtual cursor starts centered, stays visible, recovers its host, and is removable", { concurrency: false }, () => {
-  const saved = { document: globalThis.document, innerWidth: globalThis.innerWidth, innerHeight: globalThis.innerHeight, MutationObserver: globalThis.MutationObserver };
+  const saved = { document: globalThis.document, innerWidth: globalThis.innerWidth, innerHeight: globalThis.innerHeight, MutationObserver: globalThis.MutationObserver, addEventListener: globalThis.addEventListener, removeEventListener: globalThis.removeEventListener };
   const root = new FakeElement("html");
   const observers = [];
+  const listeners = new Map();
+  globalThis.addEventListener = (type, listener) => listeners.set(type, listener);
+  globalThis.removeEventListener = (type, listener) => { if (listeners.get(type) === listener) listeners.delete(type); };
   globalThis.MutationObserver = class {
     constructor(callback) { this.callback = callback; this.disconnected = false; observers.push(this); }
     observe(target, options) { this.target = target; this.options = options; }
@@ -28,13 +31,20 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
     assert.match(host.style.cssText, /pointer-events:none/);
     assert.equal(host.attributes.get("data-state"), "move");
 
+    globalThis.innerHeight = 500;
+    listeners.get("resize")();
+    assert.equal(host.attributes.get("data-y"), "250", "an untouched cursor follows the viewport center");
+
     const state = globalThis[VIRTUAL_CURSOR_KEY];
-    assert.match(state.cursor.style.transform, /400px,300px/);
+    assert.match(state.cursor.style.transform, /400px,250px/);
     renderVirtualCursor(VIRTUAL_CURSOR_KEY, 999, -10, "pressed");
     assert.equal(root.children.length, 1, "repeated moves reuse one overlay");
     assert.equal(host.attributes.get("data-x"), "799");
     assert.equal(host.attributes.get("data-y"), "0");
     assert.equal(state.cursor.classList.has("pressed"), true);
+    globalThis.innerHeight = 400;
+    listeners.get("resize")();
+    assert.equal(host.attributes.get("data-y"), "0", "a moved cursor is not recentered on resize");
     renderVirtualCursor(VIRTUAL_CURSOR_KEY, null, null, "ensure");
     assert.equal(host.attributes.get("data-x"), "799", "ensure preserves the last pointer position");
     assert.equal(host.attributes.get("data-state"), "pressed", "ensure preserves the current pointer phase");
@@ -61,6 +71,8 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
     globalThis.innerWidth = saved.innerWidth;
     globalThis.innerHeight = saved.innerHeight;
     globalThis.MutationObserver = saved.MutationObserver;
+    globalThis.addEventListener = saved.addEventListener;
+    globalThis.removeEventListener = saved.removeEventListener;
   }
 });
 
