@@ -18,4 +18,4 @@ if (process.platform === "win32") {
 }
 await fs.rm(path.join(dataDirectory(), "bin"), { recursive: true, force: true });
 await fs.rm(path.join(dataDirectory(), "runtime"), { recursive: true, force: true });
-process.stdout.write("Removed the Universal Chrome Agent Bridge native host and runtime descriptors. Policy settings were preserved.\n");
+process.stdout.write("Removed the Lingee Chrome Agent Bridge native host and runtime descriptors. Policy settings were preserved.\n");

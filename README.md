@@ -1,6 +1,6 @@
-# Universal Chrome Agent Bridge
+# Lingee Chrome Agent Bridge
 
-Universal Chrome Agent Bridge is a clean-room, third-party-callable implementation of the browser-control architecture used by modern desktop agents:
+Lingee Chrome Agent Bridge is a clean-room, third-party-callable implementation of the browser-control architecture used by modern desktop agents:
 
 ```text
 Agent / MCP client

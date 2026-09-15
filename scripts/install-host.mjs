@@ -35,7 +35,7 @@ if (process.platform !== "win32") await fs.chmod(target, 0o755);
 
 const manifest = {
   name: HOST_NAME,
-  description: "Universal Chrome Agent Bridge native messaging host",
+  description: "Lingee Chrome Agent Bridge native messaging host",
   path: target,
   type: "stdio",
   allowed_origins: [`chrome-extension://${args.extensionId}/`]

@@ -135,7 +135,7 @@ async function execute(method, params) {
   switch (method) {
     case "browser.getInfo":
       return {
-        name: "Universal Chrome Agent Bridge",
+        name: "Lingee Chrome Agent Bridge",
         version: chrome.runtime.getManifest().version,
         type: "extension",
         extensionId: chrome.runtime.id,

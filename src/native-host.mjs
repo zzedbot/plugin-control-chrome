@@ -120,7 +120,7 @@ async function handleRpc(request) {
 async function dispatch(method, params) {
   if (method === "bridge.getInfo") {
     return {
-      name: "Universal Chrome Agent Bridge",
+      name: "Lingee Chrome Agent Bridge",
       version: VERSION,
       instanceId,
       extensionConnected: extensionInfo != null,

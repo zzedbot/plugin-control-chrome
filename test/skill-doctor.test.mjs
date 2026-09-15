@@ -161,7 +161,7 @@ test("CLI emits exactly one JSON diagnostic report", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "universal-chrome-doctor-"));
   try {
     await mkdir(path.join(root, "src"));
-    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "universal-chrome-agent-bridge" }));
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ name: "lingee-chrome-agent-bridge" }));
     await writeFile(
       path.join(root, "src", "bridge-client.mjs"),
       "export async function listBridgeInstances() { return [{ instanceId: 'chrome-a' }]; }\n"

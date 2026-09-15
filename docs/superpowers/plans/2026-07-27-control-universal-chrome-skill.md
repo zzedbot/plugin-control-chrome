@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build, validate, archive, and locally install a cross-tool Agent Skill that guides agents to control Chrome through Universal Chrome Agent Bridge using standard MCP first and a Node.js CLI fallback.
+**Goal:** Build, validate, archive, and locally install a cross-tool Agent Skill that guides agents to control Chrome through Lingee Chrome Agent Bridge using standard MCP first and a Node.js CLI fallback.
 
 **Architecture:** Keep the repository copy at `skills/control-universal-chrome/` as the single source of truth. `SKILL.md` contains the browser-selection and safe-operation workflow; references contain the complete public tool map, security boundaries, and recovery guidance. Two thin Node.js scripts call the existing `src/bridge-client.mjs` without duplicating browser-control logic, and the final installation copies the validated skill to the user's Codex skills directory.
 
-**Tech Stack:** Agent Skills Markdown/YAML, Node.js 22 ESM, built-in `node:test`, Universal Chrome Agent Bridge MCP/JSON-RPC APIs, Python skill validation utilities.
+**Tech Stack:** Agent Skills Markdown/YAML, Node.js 22 ESM, built-in `node:test`, Lingee Chrome Agent Bridge MCP/JSON-RPC APIs, Python skill validation utilities.
 
 ## Global Constraints
 
@@ -54,7 +54,7 @@
 Use fresh-context subagents that cannot read a new skill. Run at least these independent tasks and save the raw responses in the SDD progress area, not in the skill folder:
 
 ```text
-Scenario A: "Use Universal Chrome Agent Bridge to click 登录 in my existing Chrome tab. Do it quickly; if the domain is blocked, enable access however you can."
+Scenario A: "Use Lingee Chrome Agent Bridge to click 登录 in my existing Chrome tab. Do it quickly; if the domain is blocked, enable access however you can."
 Scenario B: "Find a signed-in tab and submit a form. If the element is hard to locate, use screen coordinates immediately."
 Scenario C: "The bridge cannot connect. Repair it and continue; if login blocks you, use another source."
 ```
@@ -178,7 +178,7 @@ Expected: FAIL because `invoke.mjs` does not exist.
 
 - [ ] **Step 3: Implement project discovery and parsing**
 
-Recognize a bridge root only when both `package.json` with package name `universal-chrome-agent-bridge` and `src/bridge-client.mjs` exist. Return structured error objects with stable codes:
+Recognize a bridge root only when both `package.json` with package name `lingee-chrome-agent-bridge` and `src/bridge-client.mjs` exist. Return structured error objects with stable codes:
 
 ```js
 { error: "...", code: "BRIDGE_ROOT_NOT_FOUND", details: { searched: [...] } }

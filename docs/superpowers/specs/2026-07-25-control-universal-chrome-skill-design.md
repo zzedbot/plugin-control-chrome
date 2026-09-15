@@ -2,7 +2,7 @@
 
 ## 目标
 
-为 Universal Chrome Agent Bridge 提供一套跨工具通用的 Agent Skill。它参考 Codex `control-chrome` Skill 的任务选择、浏览器状态复用、页面操作与故障恢复原则，但只依赖本项目公开的 MCP、JSON-RPC 和 Bridge Client 接口。
+为 Lingee Chrome Agent Bridge 提供一套跨工具通用的 Agent Skill。它参考 Codex `control-chrome` Skill 的任务选择、浏览器状态复用、页面操作与故障恢复原则，但只依赖本项目公开的 MCP、JSON-RPC 和 Bridge Client 接口。
 
 Skill 同时满足两个分发目标：
 

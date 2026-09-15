@@ -129,7 +129,7 @@ async function findBridgeRoot(start, searched) {
 async function isBridgeRoot(root) {
   try {
     const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
-    if (manifest.name !== "universal-chrome-agent-bridge") return false;
+    if (manifest.name !== "lingee-chrome-agent-bridge") return false;
     await access(path.join(root, "src", "bridge-client.mjs"));
     return true;
   } catch {

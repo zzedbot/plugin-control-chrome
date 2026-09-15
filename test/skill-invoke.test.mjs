@@ -16,7 +16,7 @@ async function createBridgeFixture() {
   await mkdir(path.join(root, "src"));
   await writeFile(
     path.join(root, "package.json"),
-    JSON.stringify({ name: "universal-chrome-agent-bridge" })
+    JSON.stringify({ name: "lingee-chrome-agent-bridge" })
   );
   await writeFile(path.join(root, "src", "bridge-client.mjs"), "export {};\n");
   return root;

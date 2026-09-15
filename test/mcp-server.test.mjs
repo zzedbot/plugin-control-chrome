@@ -19,7 +19,7 @@ test("MCP server initializes and lists browser tools", async (t) => {
   child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} })}\n`);
   await waitUntil(() => responses.length === 2);
 
-  assert.equal(responses[0].result.serverInfo.name, "universal-chrome-agent-bridge");
+  assert.equal(responses[0].result.serverInfo.name, "lingee-chrome-agent-bridge");
   assert.equal(responses[0].result.serverInfo.version, VERSION);
   assert.ok(responses[1].result.tools.some((tool) => tool.name === "browser_dom_snapshot"));
   assert.ok(responses[1].result.tools.some((tool) => tool.name === "policy_allow_host"));

@@ -43,7 +43,7 @@ async function discoverBridgeDescriptors({ cleanupStale = true } = {}) {
 export async function connectBridge({ instanceId, timeoutMs = 3000, cleanupStale = true } = {}) {
   const instances = await discoverBridgeDescriptors({ cleanupStale });
   const descriptor = instanceId ? instances.find((item) => item.instanceId === instanceId) : instances[0];
-  if (!descriptor) throw Object.assign(new Error("No running Universal Chrome Agent Bridge instance was found. Open Chrome and enable the extension."), { code: "BRIDGE_NOT_FOUND" });
+  if (!descriptor) throw Object.assign(new Error("No running Lingee Chrome Agent Bridge instance was found. Open Chrome and enable the extension."), { code: "BRIDGE_NOT_FOUND" });
   return new BridgeClient(descriptor, timeoutMs);
 }
 

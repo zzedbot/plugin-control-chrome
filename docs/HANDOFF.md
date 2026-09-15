@@ -1,10 +1,10 @@
-# Universal Chrome Agent Bridge 续作交接
+# Lingee Chrome Agent Bridge 续作交接
 
 ## 最新续作状态（2026-09-15，本节优先于下方历史交接）
 
-0.1.12/remove-after-blank-v11 已通过真实 Chrome 152 的基础 E2E，以及 10/10 轮 Surfingkeys 增强 iframe 压力回归。外部扩展 frame 安全导航提交后移除；测试页会先尝试复用可写 about:blank 并创建嵌套扩展 iframe，以验证整个子树随原元素清除。覆盖安装最多约 500ms 有界重试，每轮重新枚举并验证当前页面文档；短暂销毁残留可自然退出，持续无法注入的文档仍安全失败。普通 about:blank/srcdoc 继续安装监控。源码、Host、部署扩展与运行态均为 0.1.12，尚未提交。
+0.1.12/remove-after-blank-v11 已通过真实 Chrome 152 的基础 E2E，以及 10/10 轮 Surfingkeys 增强 iframe 压力回归。随后按用户指定，将产品名统一为 **Lingee Chrome Agent Bridge**，并把 `https://test.lingee.com/favicon-32x32.png` 的原始 48×48 PNG 配置为扩展和工具栏图标。源码、Host 与部署目录已推进到 0.1.13；待用户重新加载确认运行版本、名称和图标。Native Messaging 主机名等内部兼容标识保持不变。
 
-- `src/version.mjs` 让 Host/MCP 版本统一来自 package.json；0.1.12 Host 已构建安装，扩展运行文件已同步。安装器使用带构建哈希的文件名，避免覆盖运行中的旧文件。
+- `src/version.mjs` 让 Host/MCP 版本统一来自 package.json；0.1.13 Host 已构建安装，manifest 与图标已同步。安装器使用带构建哈希的文件名，避免覆盖运行中的旧文件。
 - E2E 在打开标签页前检查 Host/扩展版本及兼容性标记；输出运行版本证据。外部 frame 检查改为读取测试页自行呈现的中和状态，不调用原始 CDP。
 - 修复 onDetach 异步清理与重新 ensure 的竞态，新增等待屏障。晚到的 detach 事件会安全取消初始化，清理后可重试；不假设 Chrome 事件携带本项目世代信息。
 - 新增 `extension/monitor-injection.js`：按真实注入返回 documentId 缓存，重新枚举确认活动文档覆盖，并使用最多 20 轮、每轮 25ms 的有界稳定化重试。修复 fallback 成功仍误报失败、缓存旧 documentId 及销毁中子文档造成的瞬时误判。
@@ -15,7 +15,7 @@
 - 最终测试和审查记录见 [本轮验证记录](./VALIDATION-2026-09-11.md)。当前修改均保留在 main 工作区，尚未提交。
 - 独立终审确认一个剩余 P2 限制：已连接 host 在监控安装后才创建 shadow root 时，根发现可能遗漏。架构文档已明确此限制，后续需设计可控成本的发现机制；现有测试通过不代表覆盖此场景。
 
-下一步：根据用户指示决定是否提交。保留未提交工作区，不恢复或覆盖历史修改。可后续处理已记录的 late shadow-root 发现限制。
+下一步：用户重新加载扩展后确认 0.1.13 的运行版本、名称和图标。可后续处理已记录的 late shadow-root 发现限制。
 
 ---
 

@@ -108,6 +108,14 @@ E2E fixture 新增空白文档复用尝试：页面先注册 load 处理器并�
 - 此前 0.1.8 至 0.1.11 在第 3–5 轮可复现的短暂销毁文档覆盖误判，在本轮压力回归中未再出现。
 - 0.1.12 的源码、已构建 Host、已安装哈希命名 Host 与部署扩展目录一致；工作区保留未提交状态。
 
+### 0.1.13 品牌与图标更新
+
+- 下载用户指定的 Lingee favicon，验证为 PNG，实际尺寸 48×48，SHA-256 为 `AFE1A3480F3AE50ECD6578DCFFC53C00BED3D3920BC4BC0F7B90EEC3873A5534`。
+- 原图保存为 `extension/icons/lingee-48.png`，manifest 的扩展图标和 action 工具栏图标均按真实 48px 尺寸引用该文件。
+- 用户可见产品名统一为 `Lingee Chrome Agent Bridge`；npm/MCP 标识改为 `lingee-chrome-agent-bridge`。Native Messaging 主机名、运行目录和既有技能目录等内部兼容标识保持不变。
+- 0.1.13 Host 已构建安装，manifest 与图标已同步至部署目录；源文件与部署文件哈希一致。
+- `npm run check` 与 `npm test`（76/76）通过；待用户重新加载确认运行版本和图标显示。
+
 本轮公开桥接口读取结果：
 
 - Host 连接正常，但运行版本仍为 0.1.0。
@@ -124,7 +132,7 @@ E2E fixture 新增空白文档复用尝试：页面先注册 load 处理器并�
 
 用户已确认重启。重新发现的新实例为 `0ea6ab31-823d-47c4-8bbb-c6196d936444`，Host 和扩展均报告 0.1.2，但 `browser.getInfo` 仍没有 compatibility 字段。源码与部署目录的 background.js 均明确包含 v2 标记，因此运行代码与磁盘不一致，具体缓存/加载原因尚未确认。
 
-已执行基础 E2E 命令，前置检查以 `Reload Chrome: foreign-frame monitor code is stale` 拒绝，未打开测试标签页，未执行 claim/DOM/点击。这不是基础 E2E 通过。已请求用户在 `chrome://extensions` 手动点击 Universal Chrome Agent Bridge 的“重新加载”，待确认后再次检查。无需再次盲目重启整个浏览器。
+已执行基础 E2E 命令，前置检查以 `Reload Chrome: foreign-frame monitor code is stale` 拒绝，未打开测试标签页，未执行 claim/DOM/点击。这不是基础 E2E 通过。已请求用户在 `chrome://extensions` 手动点击 Lingee Chrome Agent Bridge 的“重新加载”，待确认后再次检查。无需再次盲目重启整个浏览器。
 
 1. 用户重启 Chrome 后，重新发现实例并明确设置实例 ID。
 2. 检查 Host 和扩展均为 0.1.2，且扩展返回 v2 标记。

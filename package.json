@@ -1,6 +1,6 @@
 {
-  "name": "universal-chrome-agent-bridge",
-  "version": "0.1.12",
+  "name": "lingee-chrome-agent-bridge",
+  "version": "0.1.13",
   "description": "Clean-room Chrome control bridge for MCP and JSON-RPC agents.",
   "type": "module",
   "license": "MIT",

@@ -14,7 +14,7 @@ Because the OpenAI extension is not publicly source-licensed, exact internal equ
 
 ## Architecture comparison
 
-| Area | Current Codex Chrome implementation | Universal Chrome Agent Bridge | Difference |
+| Area | Current Codex Chrome implementation | Lingee Chrome Agent Bridge | Difference |
 |---|---|---|---|
 | Browser surface | User's existing Chrome profile | User's existing Chrome profile | Equivalent |
 | Extension platform | Chrome extension | Chrome Manifest V3 extension | Equivalent role |
