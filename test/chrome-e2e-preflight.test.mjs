@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { verifyChromeRuntime } from "../scripts/chrome-e2e-preflight.mjs";
 import { VERSION } from "../src/version.mjs";
 
-const compatibility = { foreignFrameMonitor: "remove-after-blank-v11", debuggerState: "generation-v4", virtualCursor: "overlay-v3" };
+const compatibility = { foreignFrameMonitor: "remove-after-blank-v11", debuggerState: "generation-v4", virtualCursor: "overlay-v8" };
 const capabilities = ["virtualCursor"];
 function fixture(browser, connected = true, hostVersion = VERSION) {
   const calls = [];

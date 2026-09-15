@@ -145,6 +145,14 @@ E2E fixture 新增空白文档复用尝试：页面先注册 load 处理器并�
 - 新增 resize 跟随：箭头尚未被动作移动时随当前视口保持居中；执行指针动作后解除中心锚定，窗口变化不会覆盖动作坐标。detach 同时移除 resize 监听。
 - 版本升级为 0.1.16，兼容标记升级为 `virtualCursor: "overlay-v3"`，避免已加载的 0.1.15/overlay-v2 被误判为修正版。Host 已构建安装，扩展部署目录逐文件哈希一致，`npm run check` 与 `npm test`（78/78）通过；待重新加载后重跑 2.5 秒常驻验收。
 - 用户重新加载后，实例 `f22dde34-ba39-4226-9760-9c6461ce30a1` 的 Host/扩展均报告 0.1.16，Chrome 152 报告 `virtualCursor: "overlay-v3"`。增强 `npm run test:chrome` 通过 claim 居中、导航后居中和坐标移动断言。
+
+### 0.1.17 Precision Glass 受控反馈
+
+- 按用户确认的 `precision-glass.html` 设计实现顶部玻璃状态条、Lingee 图标、接管边缘扫光、30×38 白色双描边鼠标、双层点击波纹与中心闪点、滚动方向胶囊和拖拽起点连线，并加入 `prefers-reduced-motion` 降级。
+- `browser.wheel` 与 `browser.scroll` 会向覆盖层传递滚动方向和强度；`browser.drag` 会传递起点和当前位置。覆盖层保持封闭 Shadow DOM、`pointer-events:none` 和最大层级，不改变 CDP 输入结果。
+- 版本升级为 0.1.17。首次真实 E2E 发现全屏拖拽 SVG 恢复了默认命中测试并挡住页面按钮；Shadow 宿主和全部子元素现均强制 `pointer-events:none`，并新增源码级断言。兼容标记随修复升级为 `virtualCursor: "overlay-v5"`，以拒绝仍加载缺陷版 `overlay-v4` 的实例。
+- Host 已构建并安装到 `universal-browser-host-8c14a274dc9b7761.exe`，六个运行脚本、manifest 和图标已同步到 Chrome 解包扩展目录并通过 SHA-256 一致性检查。重新加载 `overlay-v5`、`overlay-v6` 和 `overlay-v7` 后真实 E2E 均通过；截图确认点击与滚动已对齐，但 class 切换未取消浏览器中已经运行的拖拽 transition。拖拽阶段现直接设置内联 `transition-duration:0ms`，在释放前等待最终坐标稳定，再恢复 70ms 动画，标记升级为 `overlay-v8`。
+- 最终重新加载后，运行实例 `cce72e91-202e-46c3-82cc-0b421c2fa46e` 报告 Host/扩展 0.1.17 和 `virtualCursor: "overlay-v8"`。`npm run test:chrome` 通过；实机关键帧确认状态条与图标常驻，点击箭头尖端和波纹中心一致，滚动胶囊贴近箭头，拖拽箭头、连线终点与释放波纹对齐，detach 后测试标签已清理。`npm run check` 通过，`npm test` 为 78/78 通过。
 - 独立常驻验收只 claim 回环页面，不执行指针动作，等待 2500ms 后仍读取到 `state: "move"`；当前视口为 1023×1090，光标为 (512,545)，与视口中心一致。截图确认箭头可见，随后已 detach 并关闭测试标签。
 
 本轮公开桥接口读取结果：

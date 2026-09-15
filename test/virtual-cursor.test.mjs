@@ -22,13 +22,16 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
   globalThis.innerWidth = 800;
   globalThis.innerHeight = 600;
   try {
-    assert.deepEqual(renderVirtualCursor(VIRTUAL_CURSOR_KEY, null, null, "ensure"), {
+    assert.deepEqual(renderVirtualCursor(VIRTUAL_CURSOR_KEY, null, null, "ensure", {}, "chrome-extension://test/icons/lingee-48.png"), {
       visible: true, x: 400, y: 300, phase: "ensure"
     });
     const host = root.children[0];
     assert.equal(host.tagName, "LINGEE-AGENT-CURSOR");
     assert.equal(host.shadowMode, "closed");
     assert.match(host.style.cssText, /pointer-events:none/);
+    assert.match(host.shadowHtml, /:host\{[^}]*pointer-events:none!important/);
+    assert.match(host.shadowHtml, /\*\{[^}]*pointer-events:none/);
+    assert.equal(host.attributes.get("data-lingee-agent-cursor"), "overlay-v8");
     assert.equal(host.attributes.get("data-state"), "move");
 
     globalThis.innerHeight = 500;
@@ -61,6 +64,25 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
 
     renderVirtualCursor(VIRTUAL_CURSOR_KEY, 40, 50, "click");
     assert.equal(replacement.ring.classList.has("pulse"), true);
+    assert.equal(replacement.outerRing.classList.has("pulse"), true);
+    assert.equal(replacement.flash.classList.has("pulse"), true);
+
+    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 40, 50, "wheel", { deltaY: 160 });
+    assert.equal(replacement.scroll.classList.has("visible"), true);
+    assert.equal(replacement.scroll.classList.has("down"), true);
+    assert.match(replacement.scrollThumb.style.transform, /translateY\(8px\)/);
+
+    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 70, 80, "pressed", { drag: true, originX: 40, originY: 50 });
+    assert.equal(replacement.cursor.classList.has("dragging"), true);
+    assert.equal(replacement.cursor.style.transitionDuration, "0ms");
+    assert.equal(replacement.tether.classList.has("visible"), true);
+    assert.equal(replacement.tetherLine.attributes.get("x1"), "40");
+    assert.equal(replacement.tetherLine.attributes.get("x2"), "70");
+    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 70, 80, "click", { dragEnd: true });
+    assert.equal(replacement.cursor.classList.has("dragging"), false);
+    assert.equal(replacement.cursor.style.transitionDuration, "");
+    assert.equal(replacement.tether.classList.has("visible"), false);
+    assert.equal(replacement.tether.classList.has("releasing"), true);
     assert.equal(removeVirtualCursor(VIRTUAL_CURSOR_KEY), true);
     assert.equal(observers[1].disconnected, true);
     assert.equal(host.isConnected, false);
@@ -80,8 +102,10 @@ test("background integrates the cursor with all pointer actions and detach clean
   const background = await fs.readFile("extension/background.js", "utf8");
   assert.match(background, /case "browser\.mouseMove"[\s\S]*showVirtualCursor/);
   assert.match(background, /case "browser\.coordinateClick"[\s\S]*"pressed"/);
+  assert.match(background, /case "browser\.wheel"[\s\S]*"wheel"[\s\S]*deltaY/);
+  assert.match(background, /case "browser\.scroll"[\s\S]*"wheel"[\s\S]*deltaY/);
   assert.match(background, /async function clickLocator[\s\S]*"click"/);
-  assert.match(background, /async function drag[\s\S]*showVirtualCursor/);
+  assert.match(background, /async function drag[\s\S]*drag: true[\s\S]*dragEnd: true/);
   assert.match(background, /async function ensureDebugger[\s\S]*null, null, "ensure"/);
   assert.match(background, /function refreshForeignFrameMonitor[\s\S]*null, null, "ensure"/);
   assert.match(background, /func: removeVirtualCursor/);
@@ -109,11 +133,12 @@ class FakeElement {
   getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
   attachShadow({ mode }) {
     this.shadowMode = mode;
-    const cursor = new FakeElement("div");
-    const ring = new FakeElement("div");
+    const owner = this;
+    const selectors = ["#cursor", "#ring-inner", "#ring-outer", "#flash", "#scroll", "#scroll-thumb", "#tether", "#tether-line", "#tether-origin", "#status-icon"];
+    const elements = new Map(selectors.map((selector) => [selector, new FakeElement(selector === "#status-icon" ? "img" : "div")]));
     return {
-      set innerHTML(_value) {},
-      querySelector(selector) { return selector === "#cursor" ? cursor : ring; }
+      set innerHTML(value) { owner.shadowHtml = value; },
+      querySelector(selector) { return elements.get(selector); }
     };
   }
   appendChild(child) {

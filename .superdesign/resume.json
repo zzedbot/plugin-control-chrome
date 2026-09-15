@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "targets": {
+    "controlled-tab-interaction-system": {
+      "targetKind": "existing-ui",
+      "projectId": "766e3637-16ce-475e-983b-a3326e6f5d69",
+      "baselineDraftId": "cc86252d-9a7a-491e-b103-13d4409f740b",
+      "activeDraftId": "cc86252d-9a7a-491e-b103-13d4409f740b",
+      "designSystemPath": ".superdesign/design-system.md",
+      "referenceIds": [
+        "82739b06-c577-4159-8291-00318c1e1acb",
+        "extension-icons-lingee-48.png"
+      ],
+      "brandAssets": {
+        "logo": {
+          "assetKey": "extension-icons-lingee-48.png",
+          "url": "https://vgbujcuwptvheqijyjbe.supabase.co/storage/v1/object/public/hmac-uploads/projects/766e3637-16ce-475e-983b-a3326e6f5d69/brand-assets/extension-icons-lingee-48.png/lingee-48.png",
+          "sourcePath": "extension/icons/lingee-48.png"
+        }
+      },
+      "contextFiles": [
+        ".superdesign/design-system.md",
+        "extension/virtual-cursor.js"
+      ],
+      "fingerprints": {
+        ".superdesign/design-system.md": "4192458e71d1c8249a81b1af9d1389f5c7bb1a4155ba1787165a258b993b875d",
+        "extension/virtual-cursor.js": "0a97ae30a88dc129a3c0f0f4895e15040e46ce35142487f3b2e53e2aff22d002"
+      },
+      "drafts": {
+        "cc86252d-9a7a-491e-b103-13d4409f740b": {
+          "title": "受控标签页基准界面",
+          "visualDirection": "当前交互的忠实基准复现",
+          "currentVersion": 1
+        }
+      },
+      "localCandidates": {
+        "precision-glass": {
+          "title": "Precision Glass 控制反馈系统",
+          "htmlPath": ".superdesign/tmp/precision-glass.html",
+          "previewPath": ".superdesign/precision-glass.png"
+        },
+        "spatial-signal": {
+          "title": "Spatial Signal 控制反馈系统",
+          "htmlPath": ".superdesign/tmp/spatial-signal.html",
+          "previewPath": ".superdesign/spatial-signal.png"
+        },
+        "solid-signal": {
+          "title": "Solid Signal 实心箭头控制反馈",
+          "htmlPath": ".superdesign/tmp/solid-signal.html",
+          "previewPath": ".superdesign/solid-signal.png"
+        }
+      },
+      "selectedCandidate": "precision-glass",
+      "validation": {
+        "extensionVersion": "0.1.17",
+        "virtualCursor": "overlay-v8",
+        "chromeE2E": "passed",
+        "visualKeyframes": "passed"
+      },
+      "updatedAt": "2026-09-16T00:09:00+08:00"
+    }
+  }
+}

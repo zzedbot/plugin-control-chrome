@@ -140,7 +140,7 @@ async function execute(method, params) {
         version: chrome.runtime.getManifest().version,
         type: "extension",
         extensionId: chrome.runtime.id,
-        compatibility: { foreignFrameMonitor: "remove-after-blank-v11", debuggerState: "generation-v4", monitorDiagnostics: "counts-v2", virtualCursor: "overlay-v3" },
+        compatibility: { foreignFrameMonitor: "remove-after-blank-v11", debuggerState: "generation-v4", monitorDiagnostics: "counts-v2", virtualCursor: "overlay-v8" },
         capabilities: capabilityList()
       };
     case "browser.listTabs":
@@ -233,6 +233,7 @@ async function execute(method, params) {
       const x = number(params.x, 0); const y = number(params.y, 0); const button = params.button || "left"; const clickCount = Number(params.clickCount) || 1;
       await showVirtualCursor(tabId, x, y, "move");
       await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "none" });
+      await waitForCursorMotion();
       await showVirtualCursor(tabId, x, y, "pressed");
       await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button, clickCount });
       await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button, clickCount });
@@ -245,11 +246,17 @@ async function execute(method, params) {
       const tabId = await authorizedTab(params, settings);
       const x = number(params.x, 0); const y = number(params.y, 0);
       await showVirtualCursor(tabId, x, y, "move");
+      await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "none" });
+      await waitForCursorMotion();
+      await showVirtualCursor(tabId, x, y, "wheel", { deltaY: number(params.deltaY, 0) });
       await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX: number(params.deltaX, 0), deltaY: number(params.deltaY, 0), button: "none" });
       return { ok: true };
     }
-    case "browser.scroll":
-      return evaluateValue(await authorizedTab(params, settings), `(() => { window.scrollBy(${number(params.deltaX, 0)}, ${number(params.deltaY, 0)}); return {x: window.scrollX, y: window.scrollY}; })()`);
+    case "browser.scroll": {
+      const tabId = await authorizedTab(params, settings);
+      await showVirtualCursor(tabId, null, null, "wheel", { deltaY: number(params.deltaY, 0) });
+      return evaluateValue(tabId, `(() => { window.scrollBy(${number(params.deltaX, 0)}, ${number(params.deltaY, 0)}); return {x: window.scrollX, y: window.scrollY}; })()`);
+    }
     case "browser.setFileInput":
       return setFileInput(await authorizedTab(params, settings), requireString(params.selector, "selector"), params.files);
     case "browser.handleDialog":
@@ -415,17 +422,21 @@ async function sendCdp(tabId, method, params = {}) {
   return chrome.debugger.sendCommand({ tabId }, method, compact(params));
 }
 
-async function showVirtualCursor(tabId, x, y, phase) {
+async function showVirtualCursor(tabId, x, y, phase, details = {}) {
   try {
     await chrome.scripting.executeScript({
       target: { tabId, frameIds: [0] },
       func: renderVirtualCursor,
-      args: [VIRTUAL_CURSOR_KEY, x, y, phase],
+      args: [VIRTUAL_CURSOR_KEY, x, y, phase, details, chrome.runtime.getURL("icons/lingee-48.png")],
       injectImmediately: true
     });
   } catch {
     // Restricted pages can reject script injection. Input dispatch remains available.
   }
+}
+
+function waitForCursorMotion() {
+  return new Promise((resolve) => setTimeout(resolve, 80));
 }
 
 async function evaluateValue(tabId, expression) {
@@ -443,6 +454,7 @@ async function clickLocator(tabId, locator, button, clickCount) {
   const target = await locate(tabId, locator);
   await showVirtualCursor(tabId, target.x, target.y, "move");
   await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x: target.x, y: target.y, button: "none" });
+  await waitForCursorMotion();
   await showVirtualCursor(tabId, target.x, target.y, "pressed");
   await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x: target.x, y: target.y, button, clickCount });
   await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x: target.x, y: target.y, button, clickCount });
@@ -467,17 +479,19 @@ async function drag(tabId, params) {
   const steps = Math.max(2, Math.min(Number(params.steps) || 12, 60));
   await showVirtualCursor(tabId, from.x, from.y, "move");
   await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x: from.x, y: from.y, button: "none" });
-  await showVirtualCursor(tabId, from.x, from.y, "pressed");
+  await waitForCursorMotion();
+  await showVirtualCursor(tabId, from.x, from.y, "pressed", { drag: true, originX: from.x, originY: from.y });
   await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x: from.x, y: from.y, button: "left", buttons: 1, clickCount: 1 });
   for (let index = 1; index <= steps; index += 1) {
     const ratio = index / steps;
     const x = from.x + (to.x - from.x) * ratio;
     const y = from.y + (to.y - from.y) * ratio;
-    await showVirtualCursor(tabId, x, y, "pressed");
+    await showVirtualCursor(tabId, x, y, "pressed", { drag: true, originX: from.x, originY: from.y });
     await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "left", buttons: 1 });
   }
+  await waitForCursorMotion();
   await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x: to.x, y: to.y, button: "left", buttons: 0, clickCount: 1 });
-  await showVirtualCursor(tabId, to.x, to.y, "click");
+  await showVirtualCursor(tabId, to.x, to.y, "click", { dragEnd: true });
   return { from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y }, steps };
 }
 
