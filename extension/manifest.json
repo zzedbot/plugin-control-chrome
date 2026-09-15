@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Lingee Chrome Agent Bridge",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Allows explicitly authorized local AI agents to control Chrome through a native bridge.",
   "icons": {
     "48": "icons/lingee-48.png"

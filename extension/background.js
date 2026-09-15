@@ -140,7 +140,7 @@ async function execute(method, params) {
         version: chrome.runtime.getManifest().version,
         type: "extension",
         extensionId: chrome.runtime.id,
-        compatibility: { foreignFrameMonitor: "remove-after-blank-v11", debuggerState: "generation-v4", monitorDiagnostics: "counts-v2", virtualCursor: "overlay-v1" },
+        compatibility: { foreignFrameMonitor: "remove-after-blank-v11", debuggerState: "generation-v4", monitorDiagnostics: "counts-v2", virtualCursor: "overlay-v2" },
         capabilities: capabilityList()
       };
     case "browser.listTabs":
@@ -278,7 +278,9 @@ async function authorizedTab(params, settings) {
 }
 
 async function ensureDebugger(tabId) {
-  return debuggerController.ensure(tabId);
+  const result = await debuggerController.ensure(tabId);
+  if (controlledTabs.has(tabId)) await showVirtualCursor(tabId, null, null, "ensure");
+  return result;
 }
 
 async function detachDebugger(tabId) {
@@ -401,9 +403,11 @@ async function waitForForeignExtensionFramesToClear(tabId, timeoutMs = 1000) {
 }
 
 function refreshForeignFrameMonitor(tabId) {
-  debuggerController.refresh(tabId).catch((error) => {
-    recordEvent({ source: { tabId }, method: "Bridge.foreignFrameMonitorFailed", params: { message: error.message || String(error) } });
-  });
+  debuggerController.refresh(tabId)
+    .then(() => showVirtualCursor(tabId, null, null, "ensure"))
+    .catch((error) => {
+      recordEvent({ source: { tabId }, method: "Bridge.foreignFrameMonitorFailed", params: { message: error.message || String(error) } });
+    });
 }
 
 async function sendCdp(tabId, method, params = {}) {

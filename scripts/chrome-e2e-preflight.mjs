@@ -9,7 +9,7 @@ export async function verifyChromeRuntime(bridge) {
   assert.equal(browser.version, manifest.version, "Reload Chrome: running extension differs from source");
   assert.equal(browser.compatibility?.foreignFrameMonitor, "remove-after-blank-v11", "Reload Chrome: foreign-frame monitor code is stale");
   assert.equal(browser.compatibility?.debuggerState, "generation-v4", "Reload Chrome: debugger controller code is stale");
-  assert.equal(browser.compatibility?.virtualCursor, "overlay-v1", "Reload Chrome: virtual cursor code is stale");
+  assert.equal(browser.compatibility?.virtualCursor, "overlay-v2", "Reload Chrome: virtual cursor code is stale");
   assert.ok(browser.capabilities?.includes("virtualCursor"), "Reload Chrome: virtual cursor capability is missing");
   assert.equal(status.version, VERSION, "Reinstall the native host and reconnect Chrome: running host differs from source");
   return { hostVersion: status.version, extensionVersion: browser.version, compatibility: browser.compatibility };

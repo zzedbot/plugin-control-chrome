@@ -68,7 +68,7 @@ Unapproved entries returned by `browser.listTabs` and `browser.getTab` are redac
 
 A locator supports `css`, `role` plus `name`, `label`, `text`, or `testId`. Locator operations reject zero matches and ambiguous matches.
 
-Pointer methods render a temporary virtual pointer in the top frame. Clicks add a short pulse and drag updates the pointer along the dispatched path. The overlay has no hit testing, fades after 1.8 seconds, and is removed on `browser.detachTab`. Restricted browser pages may accept CDP input while rejecting overlay injection; in that case the action still runs without the visual pointer.
+Claiming a tab renders a persistent virtual pointer at the center of its top frame before the first controlled action. Clicks add a short pulse, drag updates the pointer along the dispatched path, and navigation recenters it in the new document. The overlay has no hit testing, restores itself if its host is removed, and remains visible until `browser.detachTab`. Restricted browser pages may accept CDP input while rejecting overlay injection; in that case the action still runs without the visual pointer.
 
 ## Debugging and events
 
@@ -106,4 +106,4 @@ These methods fail with `SENSITIVE_METADATA_APPROVAL_REQUIRED` until explicitly 
 | `FOREIGN_FRAME_MONITOR_FAILED` | The monitor could not cover all active page documents or neutralize foreign extension frames |
 | `DEBUGGER_INITIALIZATION_CANCELLED` | A detach or tab lifecycle event invalidated initialization; reread state before retrying |
 
-`browser.getInfo` includes compatibility markers for the monitor, debugger lifecycle, and virtual cursor. The latest source reports `foreignFrameMonitor: "remove-after-blank-v11"`, `debuggerState: "generation-v4"`, and `virtualCursor: "overlay-v1"`. Its capabilities include `virtualCursor`. `browser.claimTab` errors include a stage prefix (`foreign-frame-monitor`, `debugger.attach`, `Page.enable`, `Runtime.enable`, or `claim`). Debugger initialization failures may include bounded monitor counts for diagnosis; they do not include foreign extension URLs or contents.
+`browser.getInfo` includes compatibility markers for the monitor, debugger lifecycle, and virtual cursor. The latest source reports `foreignFrameMonitor: "remove-after-blank-v11"`, `debuggerState: "generation-v4"`, and `virtualCursor: "overlay-v2"`. Its capabilities include `virtualCursor`. `browser.claimTab` errors include a stage prefix (`foreign-frame-monitor`, `debugger.attach`, `Page.enable`, `Runtime.enable`, or `claim`). Debugger initialization failures may include bounded monitor counts for diagnosis; they do not include foreign extension URLs or contents.

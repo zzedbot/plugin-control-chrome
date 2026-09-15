@@ -48,9 +48,13 @@ try {
 
   stage = "claimTab";
   await bridge.call("browser.claimTab", { tabId });
+  stage = "centeredCursorAfterClaim";
+  assertCenteredCursor(await readCursorState(bridge, tabId));
   stage = "navigateAfterClaim";
   await bridge.call("browser.navigate", { tabId, url: `${baseUrl}/after-claim` });
   await waitForComplete(bridge, tabId);
+  stage = "centeredCursorAfterNavigation";
+  assertCenteredCursor(await readCursorState(bridge, tabId));
   stage = "domSnapshot";
   const before = await bridge.call("browser.domSnapshot", { tabId, maxNodes: 50, maxTextChars: 2000 });
   assert.ok(before.nodes.some(({ selector }) => selector === "#test-button"), "Test button was not found");
@@ -60,12 +64,11 @@ try {
   const cursorX = button.rect.x + button.rect.width / 2;
   const cursorY = button.rect.y + button.rect.height / 2;
   await bridge.call("browser.mouseMove", { tabId, x: cursorX, y: cursorY });
-  const cursorState = await bridge.call("browser.cdp", {
-    tabId,
-    command: "Runtime.evaluate",
-    params: { expression: `(() => { const node = document.querySelector('lingee-agent-cursor'); return node && { marker: node.dataset.lingeeAgentCursor, state: node.dataset.state, x: node.dataset.x, y: node.dataset.y }; })()`, returnByValue: true }
-  });
-  assert.deepEqual(cursorState.result.value, { marker: "overlay-v1", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) });
+  const cursorState = await readCursorState(bridge, tabId);
+  assert.deepEqual(
+    { marker: cursorState.marker, state: cursorState.state, x: cursorState.x, y: cursorState.y },
+    { marker: "overlay-v2", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
+  );
 
   if (foreignFrameUrl) {
     stage = "verifyForeignFrame";
@@ -114,6 +117,25 @@ async function waitForComplete(client, tabId, timeoutMs = 10000) {
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error(`Tab ${tabId} did not finish loading`);
+}
+
+async function readCursorState(client, tabId) {
+  const response = await client.call("browser.cdp", {
+    tabId,
+    command: "Runtime.evaluate",
+    params: {
+      expression: `(() => { const node = document.querySelector('lingee-agent-cursor'); return node && { marker: node.dataset.lingeeAgentCursor, state: node.dataset.state, x: node.dataset.x, y: node.dataset.y, width: innerWidth, height: innerHeight }; })()`,
+      returnByValue: true
+    }
+  });
+  return response.result.value;
+}
+
+function assertCenteredCursor(cursor) {
+  assert.equal(cursor?.marker, "overlay-v2");
+  assert.equal(cursor?.state, "move");
+  assert.ok(Math.abs(Number(cursor.x) - cursor.width / 2) <= 1, "Cursor is not horizontally centered");
+  assert.ok(Math.abs(Number(cursor.y) - cursor.height / 2) <= 1, "Cursor is not vertically centered");
 }
 
 async function waitForText(client, tabId, expected, timeoutMs = 5000) {

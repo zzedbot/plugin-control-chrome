@@ -3,9 +3,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { VIRTUAL_CURSOR_KEY, removeVirtualCursor, renderVirtualCursor } from "../extension/virtual-cursor.js";
 
-test("virtual cursor is isolated, reusable, clamped, animated, and removable", { concurrency: false }, () => {
-  const saved = { document: globalThis.document, innerWidth: globalThis.innerWidth, innerHeight: globalThis.innerHeight };
+test("virtual cursor starts centered, stays visible, recovers its host, and is removable", { concurrency: false }, () => {
+  const saved = { document: globalThis.document, innerWidth: globalThis.innerWidth, innerHeight: globalThis.innerHeight, MutationObserver: globalThis.MutationObserver };
   const root = new FakeElement("html");
+  const observers = [];
+  globalThis.MutationObserver = class {
+    constructor(callback) { this.callback = callback; this.disconnected = false; observers.push(this); }
+    observe(target, options) { this.target = target; this.options = options; }
+    disconnect() { this.disconnected = true; }
+  };
   globalThis.document = {
     documentElement: root,
     createElement: (tagName) => new FakeElement(tagName)
@@ -13,8 +19,8 @@ test("virtual cursor is isolated, reusable, clamped, animated, and removable", {
   globalThis.innerWidth = 800;
   globalThis.innerHeight = 600;
   try {
-    assert.deepEqual(renderVirtualCursor(VIRTUAL_CURSOR_KEY, 120.4, 80.6, "move", 5000), {
-      visible: true, x: 120.4, y: 80.6, phase: "move"
+    assert.deepEqual(renderVirtualCursor(VIRTUAL_CURSOR_KEY, null, null, "ensure"), {
+      visible: true, x: 400, y: 300, phase: "ensure"
     });
     const host = root.children[0];
     assert.equal(host.tagName, "LINGEE-AGENT-CURSOR");
@@ -23,16 +29,30 @@ test("virtual cursor is isolated, reusable, clamped, animated, and removable", {
     assert.equal(host.attributes.get("data-state"), "move");
 
     const state = globalThis[VIRTUAL_CURSOR_KEY];
-    assert.match(state.cursor.style.transform, /120\.4px,80\.6px/);
-    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 999, -10, "pressed", 5000);
+    assert.match(state.cursor.style.transform, /400px,300px/);
+    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 999, -10, "pressed");
     assert.equal(root.children.length, 1, "repeated moves reuse one overlay");
     assert.equal(host.attributes.get("data-x"), "799");
     assert.equal(host.attributes.get("data-y"), "0");
     assert.equal(state.cursor.classList.has("pressed"), true);
+    renderVirtualCursor(VIRTUAL_CURSOR_KEY, null, null, "ensure");
+    assert.equal(host.attributes.get("data-x"), "799", "ensure preserves the last pointer position");
+    assert.equal(host.attributes.get("data-state"), "pressed", "ensure preserves the current pointer phase");
 
-    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 40, 50, "click", 5000);
-    assert.equal(state.ring.classList.has("pulse"), true);
+    host.remove();
+    assert.equal(host.isConnected, false);
+    renderVirtualCursor(VIRTUAL_CURSOR_KEY, null, null, "ensure");
+    assert.equal(observers[0].disconnected, true, "a racing action retires the old observer");
+    const replacement = globalThis[VIRTUAL_CURSOR_KEY];
+    assert.equal(replacement.host.attributes.get("data-x"), "799", "a recreated host preserves the last position");
+    replacement.host.remove();
+    observers[1].callback();
+    assert.equal(replacement.host.isConnected, true, "the observer restores a removed cursor host");
+
+    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 40, 50, "click");
+    assert.equal(replacement.ring.classList.has("pulse"), true);
     assert.equal(removeVirtualCursor(VIRTUAL_CURSOR_KEY), true);
+    assert.equal(observers[1].disconnected, true);
     assert.equal(host.isConnected, false);
     assert.equal(globalThis[VIRTUAL_CURSOR_KEY], undefined);
   } finally {
@@ -40,6 +60,7 @@ test("virtual cursor is isolated, reusable, clamped, animated, and removable", {
     globalThis.document = saved.document;
     globalThis.innerWidth = saved.innerWidth;
     globalThis.innerHeight = saved.innerHeight;
+    globalThis.MutationObserver = saved.MutationObserver;
   }
 });
 
@@ -49,6 +70,8 @@ test("background integrates the cursor with all pointer actions and detach clean
   assert.match(background, /case "browser\.coordinateClick"[\s\S]*"pressed"/);
   assert.match(background, /async function clickLocator[\s\S]*"click"/);
   assert.match(background, /async function drag[\s\S]*showVirtualCursor/);
+  assert.match(background, /async function ensureDebugger[\s\S]*null, null, "ensure"/);
+  assert.match(background, /function refreshForeignFrameMonitor[\s\S]*null, null, "ensure"/);
   assert.match(background, /func: removeVirtualCursor/);
 });
 
@@ -71,6 +94,7 @@ class FakeElement {
     this.offsetWidth = 34;
   }
   setAttribute(name, value) { this.attributes.set(name, value); }
+  getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
   attachShadow({ mode }) {
     this.shadowMode = mode;
     const cursor = new FakeElement("div");
@@ -80,6 +104,16 @@ class FakeElement {
       querySelector(selector) { return selector === "#cursor" ? cursor : ring; }
     };
   }
-  appendChild(child) { child.isConnected = true; this.children.push(child); return child; }
-  remove() { this.isConnected = false; }
+  appendChild(child) {
+    if (child.parent) child.parent.children = child.parent.children.filter((item) => item !== child);
+    child.parent = this;
+    child.isConnected = true;
+    this.children.push(child);
+    return child;
+  }
+  remove() {
+    if (this.parent) this.parent.children = this.parent.children.filter((item) => item !== this);
+    this.parent = null;
+    this.isConnected = false;
+  }
 }
