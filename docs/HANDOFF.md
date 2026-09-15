@@ -2,7 +2,7 @@
 
 ## 最新续作状态（2026-09-15，本节优先于下方历史交接）
 
-0.1.12/remove-after-blank-v11 已通过真实 Chrome 152 的基础 E2E，以及 10/10 轮 Surfingkeys 增强 iframe 压力回归。随后按用户指定，将产品名统一为 **Lingee Chrome Agent Bridge**，并把 `https://test.lingee.com/favicon-32x32.png` 的原始 48×48 PNG 配置为扩展和工具栏图标。0.1.14 新增可见虚拟鼠标：语义点击、坐标移动/点击、滚轮和拖拽都会显示 Lingee 箭头，点击带脉冲反馈；待用户重新加载后执行真实 Chrome 验收。Native Messaging 主机名等内部兼容标识保持不变。
+0.1.12/remove-after-blank-v11 已通过真实 Chrome 152 的基础 E2E，以及 10/10 轮 Surfingkeys 增强 iframe 压力回归。随后按用户指定，将产品名统一为 **Lingee Chrome Agent Bridge**，并把 `https://test.lingee.com/favicon-32x32.png` 的原始 48×48 PNG 配置为扩展和工具栏图标。0.1.14 新增可见虚拟鼠标：语义点击、坐标移动/点击、滚轮和拖拽都会显示 Lingee 箭头，点击带脉冲反馈；重新加载后的真实 Chrome 152 E2E、箭头截图和脉冲中间帧截图均已通过。Native Messaging 主机名等内部兼容标识保持不变。
 
 - `src/version.mjs` 让 Host/MCP 版本统一来自 package.json；0.1.14 Host 已构建安装，manifest、图标和 `virtual-cursor.js` 已同步。安装器使用带构建哈希的文件名，避免覆盖运行中的旧文件。
 - 新增 `extension/virtual-cursor.js`，使用封闭 Shadow DOM、无命中测试的顶层覆盖层；动作失败与光标绘制失败相互独立，detach 时清理。E2E 通过 `overlay-v1` 标记和页面宿主状态验证真实注入。
@@ -17,7 +17,7 @@
 - 最终测试和审查记录见 [本轮验证记录](./VALIDATION-2026-09-11.md)。当前修改均保留在 main 工作区，尚未提交。
 - 独立终审确认一个剩余 P2 限制：已连接 host 在监控安装后才创建 shadow root 时，根发现可能遗漏。架构文档已明确此限制，后续需设计可控成本的发现机制；现有测试通过不代表覆盖此场景。
 
-下一步：用户重新加载扩展后确认 0.1.14 和 `overlay-v1`，执行基础真实 E2E，并保存截图目视检查箭头和点击脉冲。可后续处理已记录的 late shadow-root 发现限制。
+下一步：可后续处理已记录的 late shadow-root 发现限制，或继续扩展虚拟鼠标的主题与轨迹效果。0.1.14 当前无需部署动作。
 
 ---
 

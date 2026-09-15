@@ -128,7 +128,9 @@ E2E fixture 新增空白文档复用尝试：页面先注册 load 处理器并�
 - 新增 `extension/virtual-cursor.js`：封闭 Shadow DOM 内绘制白色、Lingee 紫色描边的箭头，点击显示脉冲，1.8 秒无动作后淡出。
 - 已接入语义点击、坐标移动/点击、滚轮和逐步拖拽；解除调试器控制时清理覆盖层，受限页面无法注入时不阻断底层输入。
 - `browser.getInfo` 新增 `virtualCursor: "overlay-v1"` 与 `virtualCursor` capability；真实 E2E 前置检查会拒绝旧扩展，E2E 会验证覆盖层宿主、状态和坐标。
-- 0.1.14 Host 已构建并安装；`npm run check` 与 `npm test`（78/78）通过。部署目录已同步，待用户重新加载扩展后执行真实 Chrome 与截图验收。
+- 0.1.14 Host 已构建并安装；`npm run check` 与 `npm test`（78/78）通过。部署目录已同步。
+- 用户重新加载后，实例 `d1c22976-5b08-4799-b86f-a015162f20aa` 的 Host/扩展均报告 0.1.14，Chrome 为 152.0.0.0，兼容标记包含 `virtualCursor: "overlay-v1"`。
+- `npm run test:chrome` 真实 E2E 通过并报告 `virtualCursorChecked: true`；另用独立回环页面完成语义点击截图，目视确认箭头尖端位于按钮点击坐标，延迟 100ms 截图确认紫色点击脉冲处于动画中间帧。测试标签均已 detach 并关闭。
 
 本轮公开桥接口读取结果：
 
