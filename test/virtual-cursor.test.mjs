@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { VIRTUAL_CURSOR_KEY, removeVirtualCursor, renderVirtualCursor } from "../extension/virtual-cursor.js";
 
-test("virtual cursor starts centered, stays visible, recovers its host, and is removable", { concurrency: false }, () => {
+test("virtual cursor starts centered, stays visible, recovers its host, and is removable", { concurrency: false }, async () => {
   const saved = { document: globalThis.document, innerWidth: globalThis.innerWidth, innerHeight: globalThis.innerHeight, MutationObserver: globalThis.MutationObserver, addEventListener: globalThis.addEventListener, removeEventListener: globalThis.removeEventListener };
   const root = new FakeElement("html");
   const observers = [];
   const listeners = new Map();
+  const documentListeners = new Map();
   globalThis.addEventListener = (type, listener) => listeners.set(type, listener);
   globalThis.removeEventListener = (type, listener) => { if (listeners.get(type) === listener) listeners.delete(type); };
   globalThis.MutationObserver = class {
@@ -17,22 +18,40 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
   };
   globalThis.document = {
     documentElement: root,
-    createElement: (tagName) => new FakeElement(tagName)
+    createElement: (tagName) => new FakeElement(tagName),
+    querySelectorAll: () => root.children.filter((element) => element.attributes.has("data-lingee-agent-cursor")),
+    addEventListener: (type, listener) => documentListeners.set(type, listener),
+    removeEventListener: (type, listener) => { if (documentListeners.get(type) === listener) documentListeners.delete(type); }
   };
   globalThis.innerWidth = 800;
   globalThis.innerHeight = 600;
   try {
+    const legacyHost = new FakeElement("lingee-agent-cursor");
+    legacyHost.setAttribute("data-lingee-agent-cursor", "overlay-v9");
+    root.appendChild(legacyHost);
+    const legacyObserver = { disconnected: false, disconnect() { this.disconnected = true; } };
+    globalThis.__lingeeChromeVirtualCursorV9 = { host: legacyHost, observer: legacyObserver, onResize() {}, scrollTimer: null };
     assert.deepEqual(renderVirtualCursor(VIRTUAL_CURSOR_KEY, null, null, "ensure", {}, "chrome-extension://test/icons/lingee-48.png"), {
       visible: true, x: 400, y: 300, phase: "ensure"
     });
+    assert.equal(legacyObserver.disconnected, true, "a new cursor disconnects the previous version observer");
+    assert.equal(legacyHost.isConnected, false, "a new cursor removes the previous version host");
+    assert.equal(globalThis.__lingeeChromeVirtualCursorV9, undefined);
     const host = root.children[0];
     assert.equal(host.tagName, "LINGEE-AGENT-CURSOR");
     assert.equal(host.shadowMode, "closed");
-    assert.match(host.style.cssText, /pointer-events:none/);
+    assert.match(host.style.cssText, /z-index:2147483647!important/);
+    assert.match(host.shadowHtml, /:host\{[^}]*position:fixed!important[^}]*z-index:2147483647!important/);
     assert.match(host.shadowHtml, /:host\{[^}]*pointer-events:none!important/);
     assert.match(host.shadowHtml, /\*\{[^}]*pointer-events:none/);
-    assert.equal(host.attributes.get("data-lingee-agent-cursor"), "overlay-v8");
+    assert.equal(host.attributes.get("data-lingee-agent-cursor"), "overlay-v12");
+    assert.equal(host.attributes.get("popover"), "manual");
+    assert.equal(host.showPopoverCalls, 1, "the overlay is promoted into the browser top layer");
     assert.equal(host.attributes.get("data-state"), "move");
+    const initialState = globalThis[VIRTUAL_CURSOR_KEY];
+    assert.match(initialState.cursor.style.transform, /400px,300px/);
+    assert.equal(initialState.cursor.classList.has("dragging"), false, "initial placement must finish synchronously");
+    assert.equal(initialState.cursor.style.transitionDuration, "", "normal motion timing is restored after initial placement");
 
     globalThis.innerHeight = 500;
     listeners.get("resize")();
@@ -40,10 +59,12 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
 
     const state = globalThis[VIRTUAL_CURSOR_KEY];
     assert.match(state.cursor.style.transform, /400px,250px/);
-    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 999, -10, "pressed");
+    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 999, -10, "move", { motionDurationMs: 320 });
     assert.equal(root.children.length, 1, "repeated moves reuse one overlay");
     assert.equal(host.attributes.get("data-x"), "799");
     assert.equal(host.attributes.get("data-y"), "0");
+    assert.equal(state.cursor.style.transitionDuration, "320ms", "a visible move uses its calculated duration");
+    renderVirtualCursor(VIRTUAL_CURSOR_KEY, 799, 0, "pressed");
     assert.equal(state.cursor.classList.has("pressed"), true);
     globalThis.innerHeight = 400;
     listeners.get("resize")();
@@ -61,6 +82,15 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
     replacement.host.remove();
     observers[1].callback();
     assert.equal(replacement.host.isConnected, true, "the observer restores a removed cursor host");
+    await Promise.resolve();
+    assert.ok(replacement.host.showPopoverCalls >= 1, "the restored host is promoted again");
+    const ownTogglePromotions = replacement.host.showPopoverCalls;
+    documentListeners.get("toggle")({ target: replacement.host });
+    await Promise.resolve();
+    assert.equal(replacement.host.showPopoverCalls, ownTogglePromotions, "the overlay ignores its own popover toggle event");
+    documentListeners.get("toggle")({ target: new FakeElement("dialog") });
+    await Promise.resolve();
+    assert.equal(replacement.host.showPopoverCalls, ownTogglePromotions + 1, "a page top-layer change re-promotes the overlay");
 
     renderVirtualCursor(VIRTUAL_CURSOR_KEY, 40, 50, "click");
     assert.equal(replacement.ring.classList.has("pulse"), true);
@@ -85,6 +115,8 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
     assert.equal(replacement.tether.classList.has("releasing"), true);
     assert.equal(removeVirtualCursor(VIRTUAL_CURSOR_KEY), true);
     assert.equal(observers[1].disconnected, true);
+    assert.equal(documentListeners.has("toggle"), false);
+    assert.equal(documentListeners.has("fullscreenchange"), false);
     assert.equal(host.isConnected, false);
     assert.equal(globalThis[VIRTUAL_CURSOR_KEY], undefined);
   } finally {
@@ -95,6 +127,7 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
     globalThis.MutationObserver = saved.MutationObserver;
     globalThis.addEventListener = saved.addEventListener;
     globalThis.removeEventListener = saved.removeEventListener;
+    delete globalThis.__lingeeChromeVirtualCursorV9;
   }
 });
 
@@ -106,8 +139,15 @@ test("background integrates the cursor with all pointer actions and detach clean
   assert.match(background, /case "browser\.scroll"[\s\S]*"wheel"[\s\S]*deltaY/);
   assert.match(background, /async function clickLocator[\s\S]*"click"/);
   assert.match(background, /async function drag[\s\S]*drag: true[\s\S]*dragEnd: true/);
+  assert.match(background, /const cursorPositionsByTab = new Map\(\)/);
+  assert.match(background, /function cursorMotionDuration[\s\S]*CURSOR_MIN_MOTION_MS[\s\S]*CURSOR_MAX_MOTION_MS/);
+  assert.match(background, /async function moveVirtualCursor[\s\S]*motionDurationMs[\s\S]*CURSOR_SETTLE_MS/);
+  assert.match(background, /const effectiveX = x == null && previous \? previous\.x : x/);
   assert.match(background, /async function ensureDebugger[\s\S]*null, null, "ensure"/);
   assert.match(background, /function refreshForeignFrameMonitor[\s\S]*null, null, "ensure"/);
+  assert.match(background, /onDOMContentLoaded[\s\S]*frameId === 0[\s\S]*recoverVirtualCursor/);
+  assert.match(background, /changeInfo\.status === "complete"[\s\S]*recoverVirtualCursor/);
+  assert.match(background, /async function recoverVirtualCursor[\s\S]*CURSOR_RECOVERY_DELAYS_MS[\s\S]*rendered\?\.visible/);
   assert.match(background, /func: removeVirtualCursor/);
 });
 
@@ -128,9 +168,14 @@ class FakeElement {
     this.classList = new FakeClassList();
     this.isConnected = false;
     this.offsetWidth = 34;
+    this.popoverOpen = false;
+    this.showPopoverCalls = 0;
   }
   setAttribute(name, value) { this.attributes.set(name, value); }
   getAttribute(name) { return this.attributes.has(name) ? this.attributes.get(name) : null; }
+  matches(selector) { return selector === ":popover-open" && this.popoverOpen; }
+  showPopover() { this.popoverOpen = true; this.showPopoverCalls += 1; }
+  hidePopover() { this.popoverOpen = false; }
   attachShadow({ mode }) {
     this.shadowMode = mode;
     const owner = this;

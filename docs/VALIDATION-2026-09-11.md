@@ -153,7 +153,41 @@ E2E fixture 新增空白文档复用尝试：页面先注册 load 处理器并�
 - 版本升级为 0.1.17。首次真实 E2E 发现全屏拖拽 SVG 恢复了默认命中测试并挡住页面按钮；Shadow 宿主和全部子元素现均强制 `pointer-events:none`，并新增源码级断言。兼容标记随修复升级为 `virtualCursor: "overlay-v5"`，以拒绝仍加载缺陷版 `overlay-v4` 的实例。
 - Host 已构建并安装到 `universal-browser-host-8c14a274dc9b7761.exe`，六个运行脚本、manifest 和图标已同步到 Chrome 解包扩展目录并通过 SHA-256 一致性检查。重新加载 `overlay-v5`、`overlay-v6` 和 `overlay-v7` 后真实 E2E 均通过；截图确认点击与滚动已对齐，但 class 切换未取消浏览器中已经运行的拖拽 transition。拖拽阶段现直接设置内联 `transition-duration:0ms`，在释放前等待最终坐标稳定，再恢复 70ms 动画，标记升级为 `overlay-v8`。
 - 最终重新加载后，运行实例 `cce72e91-202e-46c3-82cc-0b421c2fa46e` 报告 Host/扩展 0.1.17 和 `virtualCursor: "overlay-v8"`。`npm run test:chrome` 通过；实机关键帧确认状态条与图标常驻，点击箭头尖端和波纹中心一致，滚动胶囊贴近箭头，拖拽箭头、连线终点与释放波纹对齐，detach 后测试标签已清理。`npm run check` 通过，`npm test` 为 78/78 通过。
+
+### 0.1.18 可见快速移动
+
+- 普通鼠标移动改为按距离计算的 180–360ms 缓动，到达后停留 70ms 再执行点击或滚轮，避免原 70ms 移动与 80ms 等待导致操作一闪而过。
+- 后台按受控标签页保存最后坐标；导航产生新文档后，Precision Glass 覆盖层从该坐标恢复，不再重新居中。首次接管仍从视口中心开始，detach 或关闭标签页时清理状态。
+- 拖拽每帧增加 16ms 节奏，保持快速的同时让路径可见。兼容标记升级为 `virtualCursor: "overlay-v9"`，版本升级为 0.1.18。
+- 重新加载 0.1.18 后，实机截图发现原页面仍保留不再受新版控制的 `overlay-v8` 箭头；刷新页面后 `overlay-v9` 可正确移动。0.1.19/`overlay-v10` 在创建新版覆盖层前断开历史观察器并移除所有历史覆盖层宿主，避免旧箭头停在中心造成误判。
+- 重新加载最终 0.1.19 后，运行实例 `c853db0d-2629-4b76-9cb9-5d9919a606a2` 报告 Host/扩展 0.1.19 和 `virtualCursor: "overlay-v10"`。增强 E2E 通过，覆盖首次接管居中、两次导航坐标继承、移动与点击、detach 和标签清理。云之家登录页实机验收中，箭头从中心移动至二维码区域后再移动至左侧资讯区，最终画面仅保留一个位于目标位置的箭头，中心无历史覆盖层残留。
 - 独立常驻验收只 claim 回环页面，不执行指针动作，等待 2500ms 后仍读取到 `state: "move"`；当前视口为 1023×1090，光标为 (512,545)，与视口中心一致。截图确认箭头可见，随后已 detach 并关闭测试标签。
+
+### 0.1.20 顶层覆盖与可靠初始化
+
+- 根因一：Shadow DOM 的 `:host { all: initial !important }` 会覆盖宿主内联样式中没有 `!important` 的 `position`、`inset` 和 `z-index`，因此此前写入的最大 z-index 并不可靠。
+- 根因二：接管和导航刷新只尝试一次注入；若新文档尚未创建 `documentElement`，注入会正常返回 `visible: false`，后台却不会重试。导航刷新回调中的异常也只记录事件，可能留下仍受控但无覆盖层的新文档。
+- 0.1.20/`overlay-v11` 在 Shadow 宿主内外重复声明关键固定定位与最大层级，使用 manual popover 进入浏览器 top layer，并在页面打开 dialog、popover 或进入全屏后重新提升。
+- 新增有界注入恢复：接管时立即重试，并在顶层文档的 `DOMContentLoaded`、导航刷新和标签完成加载时再次确保覆盖层存在。子 frame 提交不再触发顶层覆盖层刷新。
+- `npm run check` 通过；重建 Native Host 后 `npm test` 为 78/78 通过。源码与 Chrome 解包部署目录的 7 个运行文件 SHA-256 一致，0.1.20 Host 已注册。
+- 在 `chrome://extensions` 重新加载后，运行实例 `403fc06f-a8de-46b7-886f-1f70245320bb` 报告 Host/扩展均为 0.1.20，兼容标记为 `overlay-v11`。增强真实 E2E 校验宿主计算样式为 `position: fixed`、`z-index: 2147483647` 且 `:popover-open` 为真，并在页面打开覆盖全视口、最大 z-index 的模态框后再次确认覆盖层仍在 top layer。
+- 同一实例连续运行 10 轮增强真实 E2E，10/10 全部通过；每轮覆盖首次接管显示、两次导航恢复、可见移动、点击、模态框顶层竞争、detach 和标签清理，未复现偶发不显示。
+
+### Lingee Chrome Control Skill 自包含审计
+
+- 复现并确认灵基报错根因：旧 ZIP 仅含 `invoke.mjs`/`doctor.mjs` 包装脚本，运行时强制从完整源码仓库加载 `src/bridge-client.mjs`；单独安装 Skill 必然可能返回 `BRIDGE_ROOT_NOT_FOUND`。
+- 将公共 `bridge-client.mjs` 与 `runtime-paths.mjs` 放入 `scripts/runtime/`，默认从 Skill 内加载；`UNIVERSAL_CHROME_BRIDGE_ROOT` 仅保留为显式仓库开发覆盖。新增同步测试，要求内置运行时与仓库公共客户端逐字节一致。
+- 修复多实例约束：CLI 调用和只读 doctor 在多个实例且没有 `UNIVERSAL_BROWSER_INSTANCE_ID` 时返回 `BRIDGE_INSTANCE_SELECTION_REQUIRED`，不会默认选择最新 Chrome 会话。
+- 独立复制测试确认 Skill 离开源码仓库、清除根目录变量后可运行；本机安装副本真实 `instances` 与 `doctor.mjs` 均成功，doctor 报告 `bridgeClient.source: "bundled"` 且扩展已连接。
+- `quick_validate.py` 对仓库副本和安装副本均通过；Skill 定向测试为 36/36。重新生成的 ZIP 包含 9 个文件、CRC 完整、包含两个运行时文件且不递归包含旧 ZIP，路径为 `dist/lingee-chrome-control-skill-0.1.20.zip`。
+
+### 0.1.21 初始化首帧与慢速可视验收
+
+- 虚拟鼠标标记升级为 `overlay-v12`。新建箭头先以 0ms 过渡同步放置到视口中心，再恢复常规移动过渡，避免初始化时从左上角滑入。
+- 单元测试新增初始化位置、临时禁用过渡及恢复普通过渡的断言；`npm run check` 和 `npm test` 均通过，测试结果为 82/82。
+- 重建并注册 0.1.21 Native Host 后，仓库与 Chrome 解包部署目录的 7 个运行文件 SHA-256 一致。重新加载扩展后的实例 `e4a46bbb-aab2-4fe5-9a06-634893cf7bad` 报告 Host/扩展均为 0.1.21，兼容标记为 `overlay-v12`，真实 Chrome E2E 通过。
+- 慢速可视验收依次停留展示居中初始化、三段移动、语义点击、三次向下滚动和一次向上滚动。四阶段截图保存为 `dist/cursor-slow-{1-initialized,2-moved,3-clicked,4-scrolled}.png`；初始化截图确认箭头直接位于视口中心，移动和点击截图确认箭头到达目标且按钮状态改变，滚动截图确认页面进入下一内容区，结束后正常 detach 并保留演示页。
+- 已生成 `dist/lingee-chrome-control-skill-0.1.21.zip`（9 个文件）和 `dist/lingee-chrome-agent-bridge-extension-0.1.21.zip`（12 个文件）。两包均从 ZIP 解压后逐文件核对 SHA-256；解压 Skill 通过 `quick_validate.py`，扩展脚本通过 `node --check`，扩展 manifest 的名称和版本核验为 Lingee Chrome Agent Bridge 0.1.21。
 
 本轮公开桥接口读取结果：
 

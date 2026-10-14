@@ -1,23 +1,23 @@
 # Lingee Chrome Agent Bridge 续作交接
 
-## 最新续作状态（2026-09-15，本节优先于下方历史交接）
+## 最新续作状态（2026-10-14，本节优先于下方历史交接）
 
-0.1.12/remove-after-blank-v11 已通过真实 Chrome 152 的基础 E2E，以及 10/10 轮 Surfingkeys 增强 iframe 压力回归。随后按用户指定，将产品名统一为 **Lingee Chrome Agent Bridge**，并把 `https://test.lingee.com/favicon-32x32.png` 的原始 48×48 PNG 配置为扩展和工具栏图标。0.1.17 采用用户选定的 Precision Glass 方案：受控期间常驻顶部玻璃状态条和白色双描边鼠标，接管时显示边缘扫光，点击显示双环与中心闪点，滚动显示方向胶囊，拖拽显示起点与连线。原有居中、视口 resize 锚定、导航恢复、宿主自恢复和 detach 清理逻辑继续保留。Native Messaging 主机名等内部兼容标识保持不变。
+0.1.12/remove-after-blank-v11 已通过真实 Chrome 152 的基础 E2E，以及 10/10 轮 Surfingkeys 增强 iframe 压力回归。随后按用户指定，将产品名统一为 **Lingee Chrome Agent Bridge**，并把 `https://test.lingee.com/favicon-32x32.png` 的原始 48×48 PNG 配置为扩展和工具栏图标。0.1.17 采用用户选定的 Precision Glass 方案：受控期间常驻顶部玻璃状态条和白色双描边鼠标，接管时显示边缘扫光，点击显示双环与中心闪点，滚动显示方向胶囊，拖拽显示起点与连线。0.1.18 将普通移动调整为按距离计算的 180–360ms 动画，到达后短暂停留再点击，并在导航后的新文档恢复标签页最后坐标。0.1.19 进一步清理扩展升级后旧文档中残留的历史覆盖层。0.1.20 修复 Shadow DOM 的 `all: initial !important` 覆盖宿主定位与层级声明的问题，将覆盖层放入浏览器 top layer，并在接管、DOMContentLoaded 和顶层导航完成时重试注入，避免早期注入竞态导致箭头缺失。0.1.21 将新建箭头无动画定位到视口中心后才恢复移动过渡，避免初始化时从左上角滑入或逻辑坐标先于实际画面。原有居中、视口 resize 锚定、宿主自恢复和 detach 清理逻辑继续保留。Native Messaging 主机名等内部兼容标识保持不变。
 
-- `src/version.mjs` 让 Host/MCP 版本统一来自 package.json；0.1.17 Host 已构建并安装，扩展部署副本已同步，`overlay-v8` 已通过真实 Chrome E2E 与关键帧验收。安装器使用带构建哈希的文件名，避免覆盖运行中的旧文件。
-- `extension/virtual-cursor.js` 使用封闭 Shadow DOM、无命中测试的顶层覆盖层；动作失败与覆盖层绘制失败相互独立，detach 时清理。当前源代码通过 `overlay-v8` 标记区分使用内联零时长拖拽过渡的 Precision Glass 实现。
-- 浏览器控制 Skill 已更名为 `lingee-chrome-control`，UI 显示名为 `Lingee Chrome Control`；仓库和本机安装目录均已迁移，旧目录不再保留。
+- `src/version.mjs` 让 Host/MCP 版本统一来自 package.json；0.1.21 使用 `overlay-v12` 标记。安装器使用带构建哈希的文件名，避免覆盖运行中的旧文件。
+- `extension/virtual-cursor.js` 使用封闭 Shadow DOM、无命中测试的顶层覆盖层；动作失败与覆盖层绘制失败相互独立，detach 时清理。当前 Precision Glass 实现使用按距离计算的可见移动，并由后台保存每个受控标签页最后坐标以支持导航恢复。
+- 浏览器控制 Skill 已更名为 `lingee-chrome-control`，UI 显示名为 `Lingee Chrome Control`。Skill 现内置公共 Bridge Client，不再依赖源码仓库；多实例未选择时 CLI 和 doctor 均拒绝猜选。本机安装副本与仓库 9 个文件哈希一致，最新版 Skill 包为 `dist/lingee-chrome-control-skill-0.1.21.zip`，最新版 Chrome 扩展包为 `dist/lingee-chrome-agent-bridge-extension-0.1.21.zip`。
 - E2E 在打开标签页前检查 Host/扩展版本及兼容性标记；输出运行版本证据。外部 frame 检查改为读取测试页自行呈现的中和状态，不调用原始 CDP。
 - 修复 onDetach 异步清理与重新 ensure 的竞态，新增等待屏障。晚到的 detach 事件会安全取消初始化，清理后可重试；不假设 Chrome 事件携带本项目世代信息。
 - 新增 `extension/monitor-injection.js`：按真实注入返回 documentId 缓存，重新枚举确认活动文档覆盖，并使用最多 20 轮、每轮 25ms 的有界稳定化重试。修复 fallback 成功仍误报失败、缓存旧 documentId 及销毁中子文档造成的瞬时误判。
 - 监控器同时观察 src/srcdoc；发现外部扩展 frame 后移除 srcdoc、导航至 about:blank，并在安全提交的 load 事件中移除元素；后台等待归因 frameId 消失后再附加调试器。
 - 源码六个 JavaScript 运行文件已复制到原部署目录，包括 **monitor-injection.js** 和 **virtual-cursor.js**。后续同步必须包含这两个文件。
-- 最新标记为 **remove-after-blank-v11 / generation-v4 / counts-v2 / overlay-v8**；下方历史示例中的旧标记已过时。
+- 最新标记为 **remove-after-blank-v11 / generation-v4 / counts-v2 / overlay-v12**；下方历史示例中的旧标记已过时。
 - 已确认 Surfingkeys 本机 manifest 版本 **1.19.1**，`pages/frontend.html` 属于 `<all_urls>` 的 web_accessible_resources；该 URL 的真实回归已通过。
-- 最终测试和审查记录见 [本轮验证记录](./VALIDATION-2026-09-11.md)。当前修改均保留在 main 工作区，尚未提交。
+- 最终测试和审查记录见 [本轮验证记录](./VALIDATION-2026-09-11.md)。
 - 独立终审确认一个剩余 P2 限制：已连接 host 在监控安装后才创建 shadow root 时，根发现可能遗漏。架构文档已明确此限制，后续需设计可控成本的发现机制；现有测试通过不代表覆盖此场景。
 
-下一步：可提交并推送 0.1.17 Precision Glass 实现，或继续处理已记录的 late shadow-root 发现限制。
+下一步：推送已通过真实 Chrome 可视化慢速验收的 0.1.21，以及已完成自包含审计的 Skill；ZIP 已重新生成，CRX 如需发布仍需重新生成。也可继续处理已记录的 late shadow-root 发现限制。
 
 ---
 
@@ -179,10 +179,10 @@ foreach ($name in $names) {
 
 只有当进程带有本项目事先创建的唯一测试 profile/marker，并且已经复核该 profile 的绝对路径属于明确的测试目录时，才可自动终止。当前进程不是用唯一测试 profile 启动的，因此新会话不得仅凭 PID `36024` 自动终止它。若无法安全确认，请停止自动重启，明确请用户手动完全退出并重新打开 Chrome，待用户确认后再继续。不要为方便测试擅自创建或迁移用户配置。Chrome 重新启动后再以可见窗口打开 `about:blank`。
 
-设置 Bridge 根目录并发现实例：
+使用 Skill 内置 Bridge Client 发现实例：
 
 ```powershell
-$env:UNIVERSAL_CHROME_BRIDGE_ROOT = 'E:\AI\codex\workspace\chrome'
+Remove-Item Env:UNIVERSAL_CHROME_BRIDGE_ROOT -ErrorAction SilentlyContinue
 node 'C:\Users\fcliq\.codex\skills\lingee-chrome-control\scripts\invoke.mjs' instances
 ```
 

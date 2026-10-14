@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { locateBridgeRoot, loadClient } from "./invoke.mjs";
+import { resolveClient } from "./invoke.mjs";
 
 const requiredMajor = 22;
 
@@ -11,35 +11,19 @@ export async function runDiagnostics(options = {}) {
   const report = {
     ok: false,
     node: nodeCheck(nodeVersion),
-    bridgeRoot: undefined,
     bridgeClient: undefined,
     instances: undefined,
     connection: undefined
   };
 
-  let bridgeRoot;
-  try {
-    bridgeRoot = await (options.locateBridgeRoot ?? locateBridgeRoot)({
-      env,
-      cwd: options.cwd,
-      scriptDir: options.scriptDir
-    });
-    report.bridgeRoot = { ok: true, path: bridgeRoot };
-  } catch (error) {
-    report.bridgeRoot = failedCheck(error);
-    report.bridgeClient = skippedCheck("bridge root unavailable");
-    report.instances = skippedCheck("bridge root unavailable");
-    report.connection = skippedCheck("bridge root unavailable");
-    return finalize(report);
-  }
-
   let client;
   try {
-    client = await (options.loadClient ?? loadClient)(bridgeRoot);
+    const resolved = await (options.resolveClient ?? resolveClient)({ env });
+    client = resolved?.client ?? resolved;
     if (typeof client.listBridgeInstances !== "function" || typeof client.connectBridge !== "function") {
       throw Object.assign(new Error("Bridge Client exports are unavailable."), { code: "BRIDGE_CLIENT_UNAVAILABLE" });
     }
-    report.bridgeClient = { ok: true };
+    report.bridgeClient = { ok: true, source: resolved?.source ?? "injected" };
   } catch (error) {
     report.bridgeClient = failedCheck(error);
     report.instances = skippedCheck("bridge client unavailable");
@@ -66,6 +50,15 @@ export async function runDiagnostics(options = {}) {
   }
 
   const selectedInstanceId = env.UNIVERSAL_BROWSER_INSTANCE_ID;
+  if (!selectedInstanceId && instances.length > 1) {
+    report.instances = {
+      ok: false,
+      count: instances.length,
+      code: "BRIDGE_INSTANCE_SELECTION_REQUIRED"
+    };
+    report.connection = skippedCheck("multiple bridge instances require explicit selection");
+    return finalize(report);
+  }
   const instance = selectedInstanceId
     ? instances.find((item) => item?.instanceId === selectedInstanceId)
     : instances[0];
@@ -116,7 +109,6 @@ function skippedCheck(reason) {
 
 function finalize(report) {
   report.ok = report.node.ok
-    && report.bridgeRoot.ok
     && report.bridgeClient.ok
     && report.instances.ok
     && report.connection.ok;

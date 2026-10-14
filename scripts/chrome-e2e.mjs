@@ -49,12 +49,36 @@ try {
   stage = "claimTab";
   await bridge.call("browser.claimTab", { tabId });
   stage = "centeredCursorAfterClaim";
-  assertCenteredCursor(await readCursorState(bridge, tabId));
+  const claimedCursorState = await readCursorState(bridge, tabId);
+  assertCenteredCursor(claimedCursorState);
   stage = "navigateAfterClaim";
   await bridge.call("browser.navigate", { tabId, url: `${baseUrl}/after-claim` });
   await waitForComplete(bridge, tabId);
-  stage = "centeredCursorAfterNavigation";
-  assertCenteredCursor(await readCursorState(bridge, tabId));
+  stage = "preservedCursorAfterNavigation";
+  const cursorAfterInitialNavigation = await readCursorState(bridge, tabId);
+  assertCursorOverlay(cursorAfterInitialNavigation);
+  assert.deepEqual(
+    { marker: cursorAfterInitialNavigation.marker, state: cursorAfterInitialNavigation.state, x: cursorAfterInitialNavigation.x, y: cursorAfterInitialNavigation.y },
+    { marker: "overlay-v12", state: "move", x: claimedCursorState.x, y: claimedCursorState.y }
+  );
+
+  stage = "cursorAboveModalTopLayer";
+  await bridge.call("browser.cdp", {
+    tabId,
+    command: "Runtime.evaluate",
+    params: {
+      expression: `new Promise((resolve) => { const dialog = document.createElement('dialog'); dialog.id = 'lingee-e2e-modal'; dialog.textContent = 'modal'; dialog.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;margin:0;border:0;background:#241b4b;z-index:2147483647'; document.body.appendChild(dialog); dialog.showModal(); setTimeout(() => resolve(dialog.open), 80); })`,
+      awaitPromise: true,
+      returnByValue: true
+    }
+  });
+  const cursorAboveModal = await readCursorState(bridge, tabId);
+  assertCursorOverlay(cursorAboveModal);
+  await bridge.call("browser.cdp", {
+    tabId,
+    command: "Runtime.evaluate",
+    params: { expression: `document.querySelector('#lingee-e2e-modal')?.remove()`, returnByValue: true }
+  });
   stage = "domSnapshot";
   const before = await bridge.call("browser.domSnapshot", { tabId, maxNodes: 50, maxTextChars: 2000 });
   assert.ok(before.nodes.some(({ selector }) => selector === "#test-button"), "Test button was not found");
@@ -65,9 +89,20 @@ try {
   const cursorY = button.rect.y + button.rect.height / 2;
   await bridge.call("browser.mouseMove", { tabId, x: cursorX, y: cursorY });
   const cursorState = await readCursorState(bridge, tabId);
+  assertCursorOverlay(cursorState);
   assert.deepEqual(
     { marker: cursorState.marker, state: cursorState.state, x: cursorState.x, y: cursorState.y },
-    { marker: "overlay-v8", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
+    { marker: "overlay-v12", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
+  );
+
+  stage = "cursorPositionAfterNavigation";
+  await bridge.call("browser.navigate", { tabId, url: `${baseUrl}/after-pointer-move` });
+  await waitForComplete(bridge, tabId);
+  const restoredCursorState = await readCursorState(bridge, tabId);
+  assertCursorOverlay(restoredCursorState);
+  assert.deepEqual(
+    { marker: restoredCursorState.marker, state: restoredCursorState.state, x: restoredCursorState.x, y: restoredCursorState.y },
+    { marker: "overlay-v12", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
   );
 
   if (foreignFrameUrl) {
@@ -124,7 +159,7 @@ async function readCursorState(client, tabId) {
     tabId,
     command: "Runtime.evaluate",
     params: {
-      expression: `(() => { const node = document.querySelector('lingee-agent-cursor'); return node && { marker: node.dataset.lingeeAgentCursor, state: node.dataset.state, x: node.dataset.x, y: node.dataset.y, width: innerWidth, height: innerHeight }; })()`,
+      expression: `(() => { const node = document.querySelector('lingee-agent-cursor'); if (!node) return null; const style = getComputedStyle(node); const cursor = globalThis.__lingeeChromeVirtualCursorV12?.cursor; const transform = cursor ? getComputedStyle(cursor).transform : 'none'; const matrix = transform === 'none' ? null : new DOMMatrixReadOnly(transform); return { marker: node.dataset.lingeeAgentCursor, state: node.dataset.state, x: node.dataset.x, y: node.dataset.y, width: innerWidth, height: innerHeight, position: style.position, zIndex: style.zIndex, topLayer: node.matches(':popover-open'), visualX: matrix?.m41 ?? null, visualY: matrix?.m42 ?? null }; })()`,
       returnByValue: true
     }
   });
@@ -132,10 +167,21 @@ async function readCursorState(client, tabId) {
 }
 
 function assertCenteredCursor(cursor) {
-  assert.equal(cursor?.marker, "overlay-v8");
+  assertCursorOverlay(cursor);
   assert.equal(cursor?.state, "move");
   assert.ok(Math.abs(Number(cursor.x) - cursor.width / 2) <= 1, "Cursor is not horizontally centered");
   assert.ok(Math.abs(Number(cursor.y) - cursor.height / 2) <= 1, "Cursor is not vertically centered");
+}
+
+function assertCursorOverlay(cursor) {
+  assert.equal(cursor?.marker, "overlay-v12");
+  assert.equal(cursor?.position, "fixed");
+  assert.equal(cursor?.zIndex, "2147483647");
+  assert.equal(cursor?.topLayer, true);
+  if (Number.isFinite(cursor?.visualX) && Number.isFinite(cursor?.visualY)) {
+    assert.ok(Math.abs(cursor.visualX - Number(cursor.x)) <= 1, `Rendered cursor x lags its reported position: ${JSON.stringify(cursor)}`);
+    assert.ok(Math.abs(cursor.visualY - Number(cursor.y)) <= 1, `Rendered cursor y lags its reported position: ${JSON.stringify(cursor)}`);
+  }
 }
 
 async function waitForText(client, tabId, expected, timeoutMs = 5000) {

@@ -1,8 +1,20 @@
-export const VIRTUAL_CURSOR_KEY = "__lingeeChromeVirtualCursorV8";
+export const VIRTUAL_CURSOR_KEY = "__lingeeChromeVirtualCursorV12";
 
 // This function is serialized by chrome.scripting.executeScript. Keep it self-contained.
 export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move", details = {}, iconUrl = "") {
   if (!document.documentElement) return { visible: false };
+
+  for (const key of Object.getOwnPropertyNames(globalThis)) {
+    if (key === markerKey || !/^__lingeeChromeVirtualCursorV\d+$/.test(key)) continue;
+    const legacy = globalThis[key];
+    legacy?.observer?.disconnect?.();
+    globalThis.removeEventListener?.("resize", legacy?.onResize);
+    document.removeEventListener?.("toggle", legacy?.onTopLayerChange, true);
+    document.removeEventListener?.("fullscreenchange", legacy?.onTopLayerChange, true);
+    clearTimeout(legacy?.scrollTimer);
+    legacy?.host?.remove?.();
+    delete globalThis[key];
+  }
 
   let state = globalThis[markerKey];
   const previousX = Number(state?.x);
@@ -11,22 +23,26 @@ export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move", detai
   if (!state?.host?.isConnected) {
     state?.observer?.disconnect?.();
     globalThis.removeEventListener?.("resize", state?.onResize);
+    document.removeEventListener?.("toggle", state?.onTopLayerChange, true);
+    document.removeEventListener?.("fullscreenchange", state?.onTopLayerChange, true);
     clearTimeout(state?.scrollTimer);
     state?.host?.remove?.();
+    for (const staleHost of document.querySelectorAll?.("lingee-agent-cursor[data-lingee-agent-cursor]") || []) staleHost.remove();
     const host = document.createElement("lingee-agent-cursor");
     host.setAttribute("aria-hidden", "true");
-    host.setAttribute("data-lingee-agent-cursor", "overlay-v8");
-    host.style.cssText = "position:fixed;inset:0;display:block;pointer-events:none;overflow:visible;z-index:2147483647;contain:strict;";
+    host.setAttribute("data-lingee-agent-cursor", "overlay-v12");
+    host.setAttribute("popover", "manual");
+    host.style.cssText = "position:fixed!important;inset:0!important;display:block!important;margin:0!important;padding:0!important;border:0!important;width:auto!important;height:auto!important;pointer-events:none!important;overflow:visible!important;z-index:2147483647!important;contain:strict!important;background:transparent!important;";
     const shadow = host.attachShadow({ mode: "closed" });
     shadow.innerHTML = `
       <style>
-        :host{all:initial!important;pointer-events:none!important;--lingee-violet-700:#5132d6;--lingee-violet-600:#6747f5;--lingee-violet-500:#7857ff;--lingee-lavender:#b8a9ff;--lingee-cyan:#72e6ff;--lingee-ink:#17142b}
+        :host{all:initial!important;position:fixed!important;inset:0!important;display:block!important;margin:0!important;padding:0!important;border:0!important;width:auto!important;height:auto!important;pointer-events:none!important;overflow:visible!important;z-index:2147483647!important;contain:strict!important;background:transparent!important;--lingee-violet-700:#5132d6;--lingee-violet-600:#6747f5;--lingee-violet-500:#7857ff;--lingee-lavender:#b8a9ff;--lingee-cyan:#72e6ff;--lingee-ink:#17142b}
         *{box-sizing:border-box;pointer-events:none}
         #status{position:fixed;left:50%;top:12px;height:32px;padding:0 13px;border-radius:16px;display:flex;align-items:center;gap:7px;color:var(--lingee-ink);font:600 12px/16px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(247,245,255,.82));border:1px solid rgba(103,71,245,.24);box-shadow:0 8px 28px rgba(43,31,102,.18),0 2px 6px rgba(20,16,42,.16);backdrop-filter:blur(16px);transform:translateX(-50%);animation:lingee-status-in 260ms cubic-bezier(.2,.8,.2,1) both}
         #status img{width:16px;height:16px;border-radius:4px;display:block}
         #status-dot{width:6px;height:6px;border-radius:50%;background:var(--lingee-violet-600);box-shadow:0 0 0 4px rgba(103,71,245,.11),0 0 9px rgba(114,230,255,.62)}
         #edge{position:fixed;inset:0;border:2px solid transparent;background:linear-gradient(100deg,transparent 7%,rgba(114,230,255,.82) 37%,rgba(103,71,245,.9) 53%,transparent 82%) border-box;mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);mask-composite:exclude;opacity:0;animation:lingee-edge-sweep 520ms ease-out both}
-        #cursor{position:fixed;left:0;top:0;width:30px;height:38px;opacity:1;transform:translate3d(0,0,0);transform-origin:2px 2px;transition:transform 70ms linear;filter:drop-shadow(0 5px 5px rgba(23,20,43,.28)) drop-shadow(0 1px 1px rgba(81,50,214,.24))}
+        #cursor{position:fixed;left:0;top:0;width:30px;height:38px;opacity:1;transform:translate3d(0,0,0);transform-origin:2px 2px;transition:transform 220ms cubic-bezier(.2,.72,.2,1);filter:drop-shadow(0 5px 5px rgba(23,20,43,.28)) drop-shadow(0 1px 1px rgba(81,50,214,.24))}
         #cursor.dragging{transition-duration:0ms}
         #cursor svg{display:block;width:30px;height:38px;overflow:visible;transform-origin:2px 2px;transition:transform 110ms cubic-bezier(.2,.8,.2,1)}
         #cursor.pressed svg{transform:scale(.9);transition-duration:70ms}
@@ -61,11 +77,40 @@ export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move", detai
       <div id="ring-inner" class="click-ring"></div><div id="ring-outer" class="click-ring"></div><div id="flash"></div>
       <div id="scroll"><svg id="scroll-up" viewBox="0 0 8 5"><path d="M1 4 4 1l3 3" fill="none" stroke="#b8a9ff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg><div id="scroll-track"></div><div id="scroll-thumb"></div><svg id="scroll-down" viewBox="0 0 8 5"><path d="m1 1 3 3 3-3" fill="none" stroke="#b8a9ff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       <div id="cursor"><svg viewBox="0 0 30 38" aria-hidden="true"><defs><linearGradient id="lingee-pointer-fill" x1="4" y1="3" x2="20" y2="33" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"/><stop offset="1" stop-color="#eeeaff"/></linearGradient></defs><path d="M2 2 3.6 30l7-6 5.7 11 6-3.1-5.8-10.7 9.8-1.1Z" fill="#fff" stroke="rgba(255,255,255,.92)" stroke-width="4" stroke-linejoin="round"/><path d="M2 2 3.6 30l7-6 5.7 11 6-3.1-5.8-10.7 9.8-1.1Z" fill="url(#lingee-pointer-fill)" stroke="#5132d6" stroke-width="2" stroke-linejoin="round"/><path d="M3.4 4.7 4.6 24" fill="none" stroke="#72e6ff" stroke-width="1.2" stroke-linecap="round"/></svg></div>`;
+    const promote = () => {
+      if (!host.isConnected || typeof host.showPopover !== "function") return;
+      try {
+        if (host.matches?.(":popover-open")) host.hidePopover();
+        host.showPopover();
+      } catch {}
+    };
     document.documentElement.appendChild(host);
-    const observer = typeof MutationObserver === "function" ? new MutationObserver(() => {
-      if (!host.isConnected && document.documentElement) document.documentElement.appendChild(host);
+    promote();
+    let promoteQueued = false;
+    const queuePromotion = () => {
+      if (promoteQueued) return;
+      promoteQueued = true;
+      queueMicrotask(() => {
+        promoteQueued = false;
+        promote();
+      });
+    };
+    const observer = typeof MutationObserver === "function" ? new MutationObserver((records = []) => {
+      const wasDisconnected = !host.isConnected;
+      if (wasDisconnected && document.documentElement) document.documentElement.appendChild(host);
+      const topLayerChanged = records.length === 0 || records.some((record) => {
+        if (record.type === "attributes") return true;
+        return [...(record.addedNodes || [])].some((node) => node?.matches?.("dialog,[popover]") || node?.querySelector?.("dialog,[popover]"));
+      });
+      if (wasDisconnected || topLayerChanged) queuePromotion();
     }) : null;
-    observer?.observe(document.documentElement, { childList: true });
+    observer?.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["open", "popover"] });
+    const onTopLayerChange = (event) => {
+      if (event?.target === host) return;
+      queuePromotion();
+    };
+    document.addEventListener?.("toggle", onTopLayerChange, true);
+    document.addEventListener?.("fullscreenchange", onTopLayerChange, true);
     state = {
       host,
       cursor: shadow.querySelector("#cursor"),
@@ -79,6 +124,8 @@ export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move", detai
       tetherOrigin: shadow.querySelector("#tether-origin"),
       statusIcon: shadow.querySelector("#status-icon"),
       observer,
+      promote,
+      onTopLayerChange,
       scrollTimer: null,
       x: Number.isFinite(previousX) ? previousX : NaN,
       y: Number.isFinite(previousY) ? previousY : NaN,
@@ -110,15 +157,25 @@ export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move", detai
   const inputY = rawY == null ? (hasPrevious ? Number(state.y) : viewportHeight / 2) : Number(rawY);
   const x = Math.max(0, Math.min(Number.isFinite(inputX) ? inputX : 0, viewportWidth - 1));
   const y = Math.max(0, Math.min(Number.isFinite(inputY) ? inputY : 0, viewportHeight - 1));
-  if (details?.drag || details?.dragEnd) {
+  if (created) {
     state.cursor.classList.add("dragging");
     state.cursor.style.transitionDuration = "0ms";
-  } else {
-    state.cursor.classList.remove("dragging");
-    state.cursor.style.transitionDuration = "";
+  } else if (phase !== "ensure") {
+    if (details?.drag || details?.dragEnd) {
+      state.cursor.classList.add("dragging");
+      state.cursor.style.transitionDuration = "0ms";
+    } else {
+      state.cursor.classList.remove("dragging");
+      const motionDurationMs = Number(details?.motionDurationMs);
+      if (Number.isFinite(motionDurationMs)) state.cursor.style.transitionDuration = `${Math.max(0, motionDurationMs)}ms`;
+    }
   }
   state.cursor.style.transform = `translate3d(${x}px,${y}px,0)`;
-  if (details?.dragEnd) {
+  if (created) {
+    void state.cursor.offsetWidth;
+    state.cursor.classList.remove("dragging");
+    state.cursor.style.transitionDuration = "";
+  } else if (details?.dragEnd) {
     void state.cursor.offsetWidth;
     state.cursor.classList.remove("dragging");
     state.cursor.style.transitionDuration = "";
@@ -188,6 +245,8 @@ export function removeVirtualCursor(markerKey) {
   if (!state) return false;
   state.observer?.disconnect?.();
   globalThis.removeEventListener?.("resize", state.onResize);
+  document.removeEventListener?.("toggle", state.onTopLayerChange, true);
+  document.removeEventListener?.("fullscreenchange", state.onTopLayerChange, true);
   clearTimeout(state.scrollTimer);
   state.host?.remove?.();
   delete globalThis[markerKey];

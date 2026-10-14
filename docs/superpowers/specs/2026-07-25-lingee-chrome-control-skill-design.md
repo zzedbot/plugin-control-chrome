@@ -78,19 +78,18 @@ node invoke.mjs call browser.listTabs '{}'
 node invoke.mjs call browser.click '{"tabId":1,"locator":{"role":"button","name":"提交"}}'
 ```
 
-脚本只负责项目定位、JSON 参数校验、调用 `src/bridge-client.mjs` 和规范化 JSON 输出，不复制浏览器控制逻辑。
+脚本负责 JSON 参数校验、调用随 Skill 分发的公共 Bridge Client 和规范化 JSON 输出，不复制扩展内的浏览器控制逻辑。`scripts/runtime/` 中的 Bridge Client 与仓库 `src/` 公共实现保持逐字节同步，使第三方平台只安装 Skill 时也能运行。
 
-项目定位顺序：
+客户端加载顺序：
 
-1. 显式环境变量 `UNIVERSAL_CHROME_BRIDGE_ROOT`。
-2. 从 Skill 所在路径向上查找项目标志文件。
-3. 当前工作目录及其父目录。
+1. 默认加载 Skill 自带的 `scripts/runtime/bridge-client.mjs`。
+2. 仅当仓库开发者显式设置 `UNIVERSAL_CHROME_BRIDGE_ROOT` 时，加载该已验证源码目录中的客户端作为开发覆盖。
 
-定位失败时返回结构化错误和修复提示，不猜测其他安装路径。
+内置运行时缺失时返回 `BRIDGE_CLIENT_UNAVAILABLE`，不扫描或猜测其他安装路径。显式开发覆盖无效时才返回 `BRIDGE_ROOT_NOT_FOUND`。
 
 ### `scripts/doctor.mjs`
 
-只执行只读诊断，检查 Node.js 版本、项目根目录、Bridge Client 文件、可发现实例和扩展连接状态。输出单个 JSON 对象，便于不同代理解析；不会安装、启动、授权或修改浏览器状态。
+只执行只读诊断，检查 Node.js 版本、内置 Bridge Client、可发现实例和扩展连接状态。输出单个 JSON 对象，便于不同代理解析；不会安装、启动、授权或修改浏览器状态。发现多个实例但没有显式实例 ID 时停止，不默认选择任何 Chrome 会话。
 
 ## 与 Codex Chrome Skill 的转换
 

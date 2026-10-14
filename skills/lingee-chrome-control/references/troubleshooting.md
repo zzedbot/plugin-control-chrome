@@ -17,8 +17,7 @@ Run `node "<skill-root>/scripts/doctor.mjs"`. It emits one JSON report and does 
 | Failed check | Next action |
 |---|---|
 | `node` | Install or select Node.js 22+ |
-| `bridgeRoot` | Set `UNIVERSAL_CHROME_BRIDGE_ROOT` |
-| `bridgeClient` | Restore the repository installation |
+| `bridgeClient` | Reinstall the complete Skill package, including `scripts/runtime/` |
 | `instances` | Start Chrome and verify Native Host registration |
 | `connection` | Open extension status and verify Native Messaging connectivity |
 
@@ -26,11 +25,12 @@ Run `node "<skill-root>/scripts/doctor.mjs"`. It emits one JSON report and does 
 
 | Code | Meaning | Smallest safe response |
 |---|---|---|
-| `BRIDGE_ROOT_NOT_FOUND` | The CLI or doctor could not locate a valid Bridge project root. | Set `UNIVERSAL_CHROME_BRIDGE_ROOT` to the verified Bridge project root and rerun read-only discovery; do not guess paths or install anything. |
+| `BRIDGE_ROOT_NOT_FOUND` | An explicitly configured development override does not point to a valid Bridge project root. | Correct or unset `UNIVERSAL_CHROME_BRIDGE_ROOT`; ordinary installed Skills use the bundled client and do not need this variable. |
 | `INVALID_ARGUMENTS` | The CLI received missing, malformed, or extra arguments. | Read the emitted usage, correct the command or JSON, and retry; no Bridge operation ran. |
 | `INVOCATION_FAILED` | The invocation wrapper or Bridge Client failed without a more specific stable code. | Run `node "<skill-root>/scripts/doctor.mjs"` for read-only layer checks, preserve the sanitized error, and verify target state before any retry. |
-| `BRIDGE_CLIENT_UNAVAILABLE` | The located module does not provide the required Bridge Client exports. | Restore the repository installation at the verified root; do not substitute an untrusted client module. |
+| `BRIDGE_CLIENT_UNAVAILABLE` | The bundled runtime is missing or the selected development client lacks required exports. | Reinstall the complete Skill package and verify `scripts/runtime/bridge-client.mjs`; do not substitute an untrusted client module. |
 | `BRIDGE_INSTANCES_INVALID` | The Bridge Client returned an instance list that is not an array. | Stop and verify the repository and Bridge Client versions match before listing instances again. |
+| `BRIDGE_INSTANCE_SELECTION_REQUIRED` | More than one live Chrome Bridge instance exists and none was selected. | Ask the user which Chrome instance to use, then set `UNIVERSAL_BROWSER_INSTANCE_ID`; do not infer a profile from tab titles. |
 | `BRIDGE_NOT_FOUND` | No live Native Host descriptor was discovered for the selected instance. | Ask the user to open Chrome with the approved bridge extension enabled. Use the extension popup's Reconnect control or restart Chrome, then list instances again. Do not install or enable components without authorization. |
 | `EXTENSION_NOT_READY` | The Native Host exists, but the Chrome extension handshake is incomplete. | Ask the user to verify the expected profile and extension, reconnect, then repeat `bridge_status`. |
 | `AUTH_FAILED` | The runtime descriptor token is missing, invalid, stale, or inconsistent. | Never manufacture, copy, edit, or expose a token. Ask the user to reconnect the extension or restart Chrome so the legitimate host regenerates state. |

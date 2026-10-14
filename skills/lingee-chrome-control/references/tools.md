@@ -2,7 +2,7 @@
 
 Use the public MCP tools when available. The preferred MCP server is `universalChrome`. Use the bundled Node CLI only when the client cannot call MCP tools; both surfaces delegate to the same public bridge methods.
 
-`<skill-root>` below means the resolved absolute directory containing the loaded `SKILL.md`. Replace the placeholder before running a command. The CLI entrypoint belongs to the Skill, not the Bridge project. It locates the Bridge project separately by searching upward from the script and current directories; if neither is inside the Bridge checkout, set `UNIVERSAL_CHROME_BRIDGE_ROOT` to the Bridge project root.
+`<skill-root>` below means the resolved absolute directory containing the loaded `SKILL.md`. Replace the placeholder before running a command. The CLI and its public Bridge Client runtime are bundled in the Skill, so an installed package does not need the Bridge source repository. Repository developers may explicitly set `UNIVERSAL_CHROME_BRIDGE_ROOT` to test against a verified checkout; ordinary installations should leave it unset.
 
 ## Contents
 

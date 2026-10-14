@@ -5,6 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const usage = "node invoke.mjs instances | node invoke.mjs call <method> [jsonParams] [--timeout-ms <ms>]";
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+const bundledClientUrl = new URL("./runtime/bridge-client.mjs", import.meta.url);
 
 export async function locateBridgeRoot(options = {}) {
   const env = options.env ?? process.env;
@@ -75,8 +76,24 @@ export async function runInvocation(invocation, dependencies = {}) {
 
     const connectBridge = await resolveClientFunction("connectBridge", dependencies);
     const env = dependencies.env ?? process.env;
+    let instanceId = env.UNIVERSAL_BROWSER_INSTANCE_ID;
+    if (!instanceId) {
+      const listBridgeInstances = await resolveClientFunction("listBridgeInstances", dependencies);
+      const instances = await listBridgeInstances();
+      if (!Array.isArray(instances)) {
+        throw structuredError("Bridge Client returned invalid instances.", "BRIDGE_INSTANCES_INVALID");
+      }
+      if (instances.length > 1) {
+        throw structuredError(
+          "Multiple Lingee Chrome bridge instances are running; select one explicitly.",
+          "BRIDGE_INSTANCE_SELECTION_REQUIRED",
+          { instanceIds: instances.map(({ instanceId: id }) => id).filter((id) => typeof id === "string") }
+        );
+      }
+      instanceId = instances[0]?.instanceId;
+    }
     const client = await connectBridge({
-      instanceId: env.UNIVERSAL_BROWSER_INSTANCE_ID,
+      instanceId,
       ...(invocation.timeoutMs === undefined ? {} : { timeoutMs: invocation.timeoutMs })
     });
     return await client.call(
@@ -109,6 +126,26 @@ export async function loadClient(bridgeRoot) {
   return import(pathToFileURL(clientPath).href);
 }
 
+export async function loadBundledClient() {
+  try {
+    return await import(bundledClientUrl.href);
+  } catch {
+    throw structuredError(
+      "The bundled Lingee Chrome Bridge Client is unavailable.",
+      "BRIDGE_CLIENT_UNAVAILABLE"
+    );
+  }
+}
+
+export async function resolveClient(options = {}) {
+  const env = options.env ?? process.env;
+  if (env.UNIVERSAL_CHROME_BRIDGE_ROOT) {
+    const bridgeRoot = await locateBridgeRoot({ env });
+    return { client: await (options.loadClient ?? loadClient)(bridgeRoot), source: "repository" };
+  }
+  return { client: await (options.loadBundledClient ?? loadBundledClient)(), source: "bundled" };
+}
+
 export function normalizeError(error) {
   if (error instanceof Error && error.details !== undefined) return error;
   const message = error?.message ?? error?.error ?? String(error);
@@ -139,14 +176,14 @@ async function isBridgeRoot(root) {
 
 async function resolveClientFunction(name, dependencies) {
   if (typeof dependencies[name] === "function") return dependencies[name];
-  const root = dependencies.bridgeRoot ?? await locateBridgeRoot({
+  const resolved = await (dependencies.resolveClient ?? resolveClient)({
     env: dependencies.env,
-    cwd: dependencies.cwd,
-    scriptDir: dependencies.scriptDir
+    loadClient: dependencies.loadClient,
+    loadBundledClient: dependencies.loadBundledClient
   });
-  const client = await (dependencies.loadClient ?? loadClient)(root);
+  const client = resolved?.client ?? resolved;
   if (typeof client[name] !== "function") {
-    throw structuredError(`Bridge Client does not export ${name}.`, "INVOCATION_FAILED");
+    throw structuredError(`Bridge Client does not export ${name}.`, "BRIDGE_CLIENT_UNAVAILABLE");
   }
   return client[name];
 }
@@ -164,9 +201,7 @@ function structuredError(message, code, details) {
 async function main() {
   try {
     const invocation = parseInvokeArgs(process.argv.slice(2));
-    const bridgeRoot = await locateBridgeRoot();
-    const client = await loadClient(bridgeRoot);
-    const result = await runInvocation(invocation, { ...client });
+    const result = await runInvocation(invocation);
     process.stdout.write(`${JSON.stringify(result === undefined ? null : result)}\n`);
   } catch (error) {
     process.stderr.write(`${JSON.stringify(serializeError(normalizeError(error)))}\n`);

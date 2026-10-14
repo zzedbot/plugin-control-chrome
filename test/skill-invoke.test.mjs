@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -34,6 +34,23 @@ async function withFixture(run) {
 async function invokeModule() {
   return import(invokeUrl);
 }
+
+test("installed Skill uses its bundled Bridge Client without a repository checkout", async () => {
+  const isolatedRoot = await mkdtemp(path.join(os.tmpdir(), "lingee-skill-standalone-"));
+  const isolatedSkill = path.join(isolatedRoot, "lingee-chrome-control");
+  const bridgeHome = path.join(isolatedRoot, "bridge-home");
+  try {
+    await cp(path.join(workspaceRoot, "skills", "lingee-chrome-control"), isolatedSkill, { recursive: true });
+    const env = { ...process.env, UNIVERSAL_BROWSER_BRIDGE_HOME: bridgeHome };
+    delete env.UNIVERSAL_CHROME_BRIDGE_ROOT;
+    const result = await runNode([path.join(isolatedSkill, "scripts", "invoke.mjs"), "instances"], { env, cwd: isolatedRoot });
+    assert.equal(result.status, 0);
+    assert.equal(result.stderr, "");
+    assert.deepEqual(JSON.parse(result.stdout), []);
+  } finally {
+    await rm(isolatedRoot, { recursive: true, force: true });
+  }
+});
 
 function runNode(args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -220,7 +237,7 @@ test("delegates calls with exact arguments and timeout forwarding", async () => 
         }
       };
     },
-    listBridgeInstances: async () => assert.fail("call must not list instances"),
+    listBridgeInstances: async () => [{ instanceId: "chrome-a" }],
     env: { UNIVERSAL_BROWSER_INSTANCE_ID: "chrome-a" }
   };
 
@@ -233,6 +250,24 @@ test("delegates calls with exact arguments and timeout forwarding", async () => 
   );
   assert.deepEqual(connectionOptions, [{ instanceId: "chrome-a", timeoutMs: 5000 }]);
   assert.deepEqual(calls, [{ method: "browser.listTabs", params: {}, options: { timeoutMs: 5000 } }]);
+});
+
+test("call refuses to guess when multiple bridge instances are running", async () => {
+  const { runInvocation } = await invokeModule();
+  let connectCalls = 0;
+  await assert.rejects(
+    () => runInvocation(
+      { mode: "call", method: "bridge.getInfo", params: {} },
+      {
+        connectBridge: async () => { connectCalls += 1; },
+        listBridgeInstances: async () => [{ instanceId: "chrome-a" }, { instanceId: "chrome-b" }],
+        env: {}
+      }
+    ),
+    (error) => error.code === "BRIDGE_INSTANCE_SELECTION_REQUIRED"
+      && error.details?.instanceIds?.join(",") === "chrome-a,chrome-b"
+  );
+  assert.equal(connectCalls, 0);
 });
 
 test("normalizes Bridge Client errors without contacting a browser", async () => {
@@ -258,7 +293,8 @@ test("CLI writes one JSON value when a Bridge Client call returns undefined", as
   await withFixture(async (fixtureRoot) => {
     await writeFile(
       path.join(fixtureRoot, "src", "bridge-client.mjs"),
-      "export async function connectBridge() { return { call: async () => undefined }; }\n"
+      "export async function listBridgeInstances() { return [{ instanceId: 'chrome-a' }]; }\n"
+        + "export async function connectBridge() { return { call: async () => undefined }; }\n"
     );
     const result = await runNode([fileURLToPath(invokeUrl), "call", "bridge.getInfo", "{}"], {
       env: { ...process.env, UNIVERSAL_CHROME_BRIDGE_ROOT: fixtureRoot }
@@ -273,7 +309,8 @@ test("CLI failure exits nonzero with empty stdout and one JSON line on stderr", 
   await withFixture(async (fixtureRoot) => {
     await writeFile(
       path.join(fixtureRoot, "src", "bridge-client.mjs"),
-      `export async function connectBridge() {
+      `export async function listBridgeInstances() { return [{ instanceId: "chrome-a" }]; }
+      export async function connectBridge() {
         const error = Object.assign(new Error("Bridge unavailable"), {
           code: "BRIDGE_NOT_FOUND",
           data: { recovery: "Open Chrome" }

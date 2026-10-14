@@ -121,7 +121,11 @@ test("skill package contains required cross-tool files", async () => {
     "agents/openai.yaml",
     "references/tools.md",
     "references/security.md",
-    "references/troubleshooting.md"
+    "references/troubleshooting.md",
+    "scripts/invoke.mjs",
+    "scripts/doctor.mjs",
+    "scripts/runtime/bridge-client.mjs",
+    "scripts/runtime/runtime-paths.mjs"
   ]) assert.equal(await exists(join(skillRoot, path)), true, path);
 });
 
@@ -226,14 +230,15 @@ test("host approval discloses and authorizes subdomain scope", async () => {
   }
 });
 
-test("CLI entrypoints resolve from the loaded Skill root, not the Bridge project root", async () => {
+test("CLI entrypoints and runtime resolve from the installed Skill", async () => {
   const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
   const tools = await readFile(join(skillRoot, "references/tools.md"), "utf8");
 
   assert.match(skill, /resolve CLI entrypoints from the loaded Skill root[^\n]*directory containing `SKILL\.md`/i);
   assert.match(tools, /`<skill-root>`[^\n]*directory containing the loaded `SKILL\.md`/i);
-  assert.match(tools, /Bridge project[^\n]*separately[^\n]*searching upward/i);
-  assert.match(tools, /UNIVERSAL_CHROME_BRIDGE_ROOT/);
+  assert.match(skill, /includes its public Bridge Client runtime[^\n]*does not require a source checkout/i);
+  assert.match(tools, /CLI and its public Bridge Client runtime are bundled in the Skill/i);
+  assert.match(tools, /ordinary installations should leave it unset/i);
   assert.match(tools, /node "<skill-root>\/scripts\/invoke\.mjs" instances/);
   assert.doesNotMatch(tools, /run `node scripts\/invoke\.mjs/);
 });
@@ -263,8 +268,8 @@ test("troubleshooting defines stable wrapper errors and minimal safe recovery", 
   const errors = parseTroubleshootingErrors(troubleshooting);
   const required = {
     BRIDGE_ROOT_NOT_FOUND: {
-      meaning: /Bridge project root/i,
-      response: /`UNIVERSAL_CHROME_BRIDGE_ROOT`[^.]*verified/i
+      meaning: /development override[^.]*Bridge project root/i,
+      response: /unset `UNIVERSAL_CHROME_BRIDGE_ROOT`/i
     },
     INVALID_ARGUMENTS: {
       meaning: /CLI[^.]*arguments|arguments[^.]*CLI/i,
@@ -275,12 +280,16 @@ test("troubleshooting defines stable wrapper errors and minimal safe recovery", 
       response: /doctor\.mjs[^.]*read-only|read-only[^.]*doctor\.mjs/i
     },
     BRIDGE_CLIENT_UNAVAILABLE: {
-      meaning: /required Bridge Client exports/i,
-      response: /repository installation/i
+      meaning: /bundled runtime|required exports/i,
+      response: /complete Skill package/i
     },
     BRIDGE_INSTANCES_INVALID: {
       meaning: /instance list[^.]*array|array[^.]*instance list/i,
       response: /version[^.]*Bridge Client|Bridge Client[^.]*version/i
+    },
+    BRIDGE_INSTANCE_SELECTION_REQUIRED: {
+      meaning: /More than one live Chrome Bridge instance/i,
+      response: /`UNIVERSAL_BROWSER_INSTANCE_ID`[^.]*do not infer/i
     }
   };
 
@@ -288,6 +297,16 @@ test("troubleshooting defines stable wrapper errors and minimal safe recovery", 
     assert.equal(errors.has(code), true, `${code} is documented`);
     assert.match(errors.get(code).meaning, contract.meaning);
     assert.match(errors.get(code).response, contract.response);
+  }
+});
+
+test("bundled Bridge Client runtime matches the repository public client", async () => {
+  for (const name of ["bridge-client.mjs", "runtime-paths.mjs"]) {
+    assert.equal(
+      await readFile(join(skillRoot, "scripts", "runtime", name), "utf8"),
+      await readFile(join(repoRoot, "src", name), "utf8"),
+      `${name} stays synchronized`
+    );
   }
 });
 

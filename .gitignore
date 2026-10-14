@@ -1,5 +1,6 @@
 node_modules/
 dist/
+skills/lingee-chrome-control/*.zip
 *.log
 .runtime/
 extension.pem

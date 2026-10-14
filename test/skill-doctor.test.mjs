@@ -20,12 +20,14 @@ function diagnosticDependencies(overrides = {}) {
   return {
     nodeVersion: process.versions.node,
     env: {},
-    locateBridgeRoot: async () => "C:/bridge",
-    loadClient: async () => ({
-      listBridgeInstances: async () => instances,
-      connectBridge: async () => ({
-        call: async () => ({ extensionConnected: true })
-      })
+    resolveClient: async () => ({
+      source: "injected",
+      client: {
+        listBridgeInstances: async () => instances,
+        connectBridge: async () => ({
+          call: async () => ({ extensionConnected: true })
+        })
+      }
     }),
     ...overrides
   };
@@ -45,8 +47,8 @@ test("reports a healthy read-only bridge diagnostic", async () => {
   const report = await runDiagnostics(dependencies);
 
   assert.deepEqual(report.node, { ok: true, version: process.versions.node, requiredMajor: 22 });
-  assert.equal(report.bridgeRoot.ok, true);
   assert.equal(report.bridgeClient.ok, true);
+  assert.equal(report.bridgeClient.source, "injected");
   assert.equal(report.instances.count, 1);
   assert.equal(report.connection.ok, true);
   assert.equal(report.ok, true);
@@ -63,22 +65,19 @@ test("reports an unsupported Node version without mutating the bridge", async ()
   assert.equal(report.ok, false);
 });
 
-test("skips dependent checks when the bridge root is unavailable", async () => {
+test("skips dependent checks when the bundled bridge client is unavailable", async () => {
   const { runDiagnostics } = await doctorModule();
-  const rootError = Object.assign(new Error("Bridge root not found"), { code: "BRIDGE_ROOT_NOT_FOUND" });
-  let loadCalls = 0;
+  const clientError = Object.assign(new Error("Bridge client not found"), { code: "BRIDGE_CLIENT_UNAVAILABLE" });
   const dependencies = diagnosticDependencies({
-    locateBridgeRoot: async () => { throw rootError; },
-    loadClient: async () => { loadCalls += 1; }
+    resolveClient: async () => { throw clientError; }
   });
   assertReadOnlyDependencies(dependencies);
 
   const report = await runDiagnostics(dependencies);
 
-  assert.deepEqual(report.bridgeRoot, { ok: false, code: "BRIDGE_ROOT_NOT_FOUND" });
-  assert.deepEqual(report.bridgeClient, { ok: false, skipped: true, reason: "bridge root unavailable" });
-  assert.deepEqual(report.connection, { ok: false, skipped: true, reason: "bridge root unavailable" });
-  assert.equal(loadCalls, 0);
+  assert.deepEqual(report.bridgeClient, { ok: false, code: "BRIDGE_CLIENT_UNAVAILABLE" });
+  assert.deepEqual(report.instances, { ok: false, skipped: true, reason: "bridge client unavailable" });
+  assert.deepEqual(report.connection, { ok: false, skipped: true, reason: "bridge client unavailable" });
   assert.equal(report.ok, false);
 });
 
@@ -86,10 +85,10 @@ test("reports zero instances without connecting or starting a process", async ()
   const { runDiagnostics } = await doctorModule();
   let connectCalls = 0;
   const dependencies = diagnosticDependencies({
-    loadClient: async () => ({
+    resolveClient: async () => ({ source: "injected", client: {
       listBridgeInstances: async () => [],
       connectBridge: async () => { connectCalls += 1; }
-    })
+    } })
   });
   assertReadOnlyDependencies(dependencies);
 
@@ -104,7 +103,7 @@ test("reports zero instances without connecting or starting a process", async ()
 test("reports a connected bridge whose extension is disconnected", async () => {
   const { runDiagnostics } = await doctorModule();
   const dependencies = diagnosticDependencies({
-    loadClient: async () => ({
+    resolveClient: async () => ({ source: "injected", client: {
       listBridgeInstances: async () => [{ instanceId: "chrome-a", startedAt: "2026-07-27T00:00:00.000Z" }],
       connectBridge: async () => ({
         call: async (method, params) => {
@@ -113,7 +112,7 @@ test("reports a connected bridge whose extension is disconnected", async () => {
           return { extensionConnected: false };
         }
       })
-    })
+    } })
   });
   assertReadOnlyDependencies(dependencies);
 
@@ -133,7 +132,7 @@ test("uses read-only discovery and connection options for the requested instance
   const connectionOptions = [];
   const dependencies = diagnosticDependencies({
     env: { UNIVERSAL_BROWSER_INSTANCE_ID: "chrome-b" },
-    loadClient: async () => ({
+    resolveClient: async () => ({ source: "injected", client: {
       listBridgeInstances: async (options) => {
         discoveryOptions.push(options);
         return [
@@ -145,7 +144,7 @@ test("uses read-only discovery and connection options for the requested instance
         connectionOptions.push(options);
         return { call: async () => ({ extensionConnected: true }) };
       }
-    })
+    } })
   });
   assertReadOnlyDependencies(dependencies);
 
@@ -155,6 +154,32 @@ test("uses read-only discovery and connection options for the requested instance
   assert.deepEqual(connectionOptions, [{ instanceId: "chrome-b", cleanupStale: false }]);
   assert.equal(report.connection.instanceId, "chrome-b");
   assert.equal(report.ok, true);
+});
+
+test("does not connect when multiple instances exist without explicit selection", async () => {
+  const { runDiagnostics } = await doctorModule();
+  let connectCalls = 0;
+  const dependencies = diagnosticDependencies({
+    resolveClient: async () => ({ source: "injected", client: {
+      listBridgeInstances: async () => [{ instanceId: "chrome-a" }, { instanceId: "chrome-b" }],
+      connectBridge: async () => { connectCalls += 1; }
+    } })
+  });
+
+  const report = await runDiagnostics(dependencies);
+
+  assert.deepEqual(report.instances, {
+    ok: false,
+    count: 2,
+    code: "BRIDGE_INSTANCE_SELECTION_REQUIRED"
+  });
+  assert.deepEqual(report.connection, {
+    ok: false,
+    skipped: true,
+    reason: "multiple bridge instances require explicit selection"
+  });
+  assert.equal(connectCalls, 0);
+  assert.equal(report.ok, false);
 });
 
 test("CLI emits exactly one JSON diagnostic report", async () => {
