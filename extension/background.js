@@ -2,6 +2,7 @@ import { expandFrameIdSubtree, installMonitorsForTab, isMonitorablePageFrame } f
 import { createDebuggerController } from "./debugger-controller.js";
 import { FOREIGN_FRAME_MONITOR_KEY, installForeignFrameMonitor, removeForeignFrameMonitor, readForeignFrameMonitorDiagnostics } from "./foreign-frame-monitor.js";
 import { VIRTUAL_CURSOR_KEY, removeVirtualCursor, renderVirtualCursor } from "./virtual-cursor.js";
+import { createTabOperationQueue } from "./tab-operation-queue.js";
 
 const HOST_NAME = "org.universal_browser.bridge";
 const CDP_VERSION = "1.3";
@@ -10,6 +11,9 @@ const CURSOR_MIN_MOTION_MS = 180;
 const CURSOR_MAX_MOTION_MS = 360;
 const CURSOR_SETTLE_MS = 70;
 const CURSOR_RECOVERY_DELAYS_MS = [0, 40, 120, 300];
+const CURSOR_PRESS_HOLD_MS = 80;
+const CLICK_FEEDBACK_MS = 560;
+const WHEEL_FEEDBACK_MIN_MS = 120;
 const DRAG_FRAME_MS = 16;
 
 let nativePort;
@@ -30,6 +34,7 @@ const { attachedTabs, controlledTabs } = debuggerController;
 const monitoredDocumentsByTab = new Map();
 const neutralizedFrameIdsByTab = new Map();
 const cursorPositionsByTab = new Map();
+const tabOperationQueue = createTabOperationQueue();
 
 chrome.runtime.onInstalled.addListener(async () => {
   const current = await chrome.storage.local.get({ enabled: true, blockedHosts: [] });
@@ -66,12 +71,14 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => {
+  tabOperationQueue.cancel(tabId);
   debuggerController.forgetTab(tabId);
   monitoredDocumentsByTab.delete(tabId);
   neutralizedFrameIdsByTab.delete(tabId);
   cursorPositionsByTab.delete(tabId);
 });
 chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
+  tabOperationQueue.cancel(removedTabId);
   const wasControlled = controlledTabs.has(removedTabId);
   debuggerController.forgetTab(removedTabId);
   monitoredDocumentsByTab.delete(removedTabId);
@@ -152,7 +159,7 @@ async function execute(method, params) {
         version: chrome.runtime.getManifest().version,
         type: "extension",
         extensionId: chrome.runtime.id,
-        compatibility: { foreignFrameMonitor: "remove-after-blank-v11", debuggerState: "generation-v4", monitorDiagnostics: "counts-v2", virtualCursor: "overlay-v12" },
+        compatibility: { foreignFrameMonitor: "remove-after-blank-v11", debuggerState: "generation-v4", monitorDiagnostics: "counts-v2", virtualCursor: "overlay-v13" },
         capabilities: capabilityList()
       };
     case "browser.listTabs":
@@ -162,9 +169,13 @@ async function execute(method, params) {
     case "browser.openTab":
       await assertUrlNotBlocked(params.url || "about:blank", settings);
       return chrome.tabs.create(compact({ url: params.url || "about:blank", active: params.active !== false, windowId: params.windowId }));
-    case "browser.closeTab":
-      await chrome.tabs.remove(requireTabId(params));
-      return { closed: true };
+    case "browser.closeTab": {
+      const tabId = requireTabId(params);
+      return tabOperationQueue.run(tabId, async () => {
+        await chrome.tabs.remove(tabId);
+        return { closed: true };
+      });
+    }
     case "browser.activateTab": {
       const tab = await chrome.tabs.update(requireTabId(params), { active: true });
       if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
@@ -181,24 +192,42 @@ async function execute(method, params) {
         throw codedError(error.code || "BROWSER_ERROR", `browser.claimTab/${stage}: ${error.message || String(error)}`, error.data);
       }
     }
-    case "browser.detachTab":
-      await detachDebugger(requireTabId(params));
-      return { detached: true };
-    case "browser.navigate":
+    case "browser.detachTab": {
+      const tabId = requireTabId(params);
+      return tabOperationQueue.run(tabId, async () => {
+        await detachDebugger(tabId);
+        return { detached: true };
+      });
+    }
+    case "browser.navigate": {
+      const tabId = requireTabId(params);
       await assertUrlNotBlocked(params.url, settings);
-      return chrome.tabs.update(requireTabId(params), { url: requireString(params.url, "url") });
-    case "browser.back":
-      await assertTabNotBlocked(requireTabId(params), settings);
-      await chrome.tabs.goBack(requireTabId(params));
-      return { ok: true };
-    case "browser.forward":
-      await assertTabNotBlocked(requireTabId(params), settings);
-      await chrome.tabs.goForward(requireTabId(params));
-      return { ok: true };
-    case "browser.reload":
-      await assertTabNotBlocked(requireTabId(params), settings);
-      await chrome.tabs.reload(requireTabId(params), { bypassCache: params.bypassCache === true });
-      return { ok: true };
+      return tabOperationQueue.run(tabId, () => chrome.tabs.update(tabId, { url: requireString(params.url, "url") }));
+    }
+    case "browser.back": {
+      const tabId = requireTabId(params);
+      return tabOperationQueue.run(tabId, async () => {
+        await assertTabNotBlocked(tabId, settings);
+        await chrome.tabs.goBack(tabId);
+        return { ok: true };
+      });
+    }
+    case "browser.forward": {
+      const tabId = requireTabId(params);
+      return tabOperationQueue.run(tabId, async () => {
+        await assertTabNotBlocked(tabId, settings);
+        await chrome.tabs.goForward(tabId);
+        return { ok: true };
+      });
+    }
+    case "browser.reload": {
+      const tabId = requireTabId(params);
+      return tabOperationQueue.run(tabId, async () => {
+        await assertTabNotBlocked(tabId, settings);
+        await chrome.tabs.reload(tabId, { bypassCache: params.bypassCache === true });
+        return { ok: true };
+      });
+    }
     case "browser.groupTabs": {
       const groupId = await chrome.tabs.group(compact({ tabIds: params.tabIds, groupId: params.groupId }));
       if (params.title != null || params.color != null || params.collapsed != null) {
@@ -223,9 +252,9 @@ async function execute(method, params) {
       return { data: result.data, mimeType: params.format === "jpeg" ? "image/jpeg" : "image/png" };
     }
     case "browser.click":
-      return clickLocator(await authorizedTab(params, settings), params.locator, params.button || "left", params.clickCount || 1);
+      return runPointerOperation(params, settings, (tabId) => clickLocator(tabId, params.locator, params.button || "left", params.clickCount || 1));
     case "browser.fill":
-      return fillLocator(await authorizedTab(params, settings), params.locator, String(params.value ?? ""));
+      return runPointerOperation(params, settings, (tabId) => fillLocator(tabId, params.locator, String(params.value ?? "")));
     case "browser.press":
       return pressKey(await authorizedTab(params, settings), requireString(params.key, "key"), params.modifiers || []);
     case "browser.type": {
@@ -234,35 +263,41 @@ async function execute(method, params) {
       return { typed: true, length: String(params.text ?? "").length };
     }
     case "browser.mouseMove": {
-      const tabId = await authorizedTab(params, settings);
       const x = number(params.x, 0); const y = number(params.y, 0);
-      await moveVirtualCursor(tabId, x, y);
-      return { x, y };
+      return runPointerOperation(params, settings, async (tabId) => {
+        await moveVirtualCursor(tabId, x, y);
+        return { x, y };
+      });
     }
     case "browser.coordinateClick": {
-      const tabId = await authorizedTab(params, settings);
       const x = number(params.x, 0); const y = number(params.y, 0); const button = params.button || "left"; const clickCount = Number(params.clickCount) || 1;
-      await moveVirtualCursor(tabId, x, y);
-      await showVirtualCursor(tabId, x, y, "pressed");
-      await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button, clickCount });
-      await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button, clickCount });
-      await showVirtualCursor(tabId, x, y, "click");
-      return { x, y, button, clickCount };
+      return runPointerOperation(params, settings, async (tabId) => {
+        await clickCoordinates(tabId, x, y, button, clickCount);
+        return { x, y, button, clickCount };
+      });
     }
     case "browser.drag":
-      return drag(await authorizedTab(params, settings), params);
+      return runPointerOperation(params, settings, (tabId) => drag(tabId, params));
     case "browser.wheel": {
-      const tabId = await authorizedTab(params, settings);
       const x = number(params.x, 0); const y = number(params.y, 0);
-      await moveVirtualCursor(tabId, x, y);
-      await showVirtualCursor(tabId, x, y, "wheel", { deltaY: number(params.deltaY, 0) });
-      await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX: number(params.deltaX, 0), deltaY: number(params.deltaY, 0), button: "none" });
-      return { ok: true };
+      return runPointerOperation(params, settings, async (tabId) => {
+        const movement = await moveVirtualCursor(tabId, x, y);
+        const deltaY = number(params.deltaY, 0);
+        await requireVirtualCursor(tabId, x, y, "wheel", { deltaY, waitForPaint: true }, movement.documentId);
+        await sendPointerCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX: number(params.deltaX, 0), deltaY, button: "none" }, movement.documentId);
+        await waitForCursorMotion(WHEEL_FEEDBACK_MIN_MS);
+        return { ok: true };
+      });
     }
     case "browser.scroll": {
-      const tabId = await authorizedTab(params, settings);
-      await showVirtualCursor(tabId, null, null, "wheel", { deltaY: number(params.deltaY, 0) });
-      return evaluateValue(tabId, `(() => { window.scrollBy(${number(params.deltaX, 0)}, ${number(params.deltaY, 0)}); return {x: window.scrollX, y: window.scrollY}; })()`);
+      return runPointerOperation(params, settings, async (tabId) => {
+        const previous = cursorPositionsByTab.get(tabId);
+        const deltaY = number(params.deltaY, 0);
+        const rendered = await requireVirtualCursor(tabId, previous?.x, previous?.y, "wheel", { deltaY, waitForPaint: true }, previous?.documentId);
+        const result = await evaluateAttachedValue(tabId, `(() => { window.scrollBy(${number(params.deltaX, 0)}, ${deltaY}); return {x: window.scrollX, y: window.scrollY}; })()`, rendered.documentId);
+        await waitForCursorMotion(WHEEL_FEEDBACK_MIN_MS);
+        return result;
+      });
     }
     case "browser.setFileInput":
       return setFileInput(await authorizedTab(params, settings), requireString(params.selector, "selector"), params.files);
@@ -289,6 +324,15 @@ async function authorizedTab(params, settings) {
   await assertTabNotBlocked(tabId, settings);
   await ensureDebugger(tabId);
   return tabId;
+}
+
+function runPointerOperation(params, settings, operation) {
+  const tabId = requireTabId(params);
+  return tabOperationQueue.run(tabId, async () => {
+    await assertTabNotBlocked(tabId, settings);
+    await ensureDebugger(tabId);
+    return operation(tabId);
+  });
 }
 
 async function ensureDebugger(tabId) {
@@ -458,13 +502,32 @@ async function showVirtualCursor(tabId, x, y, phase, details = {}) {
     });
     const rendered = results?.[0]?.result;
     if (Number.isFinite(rendered?.x) && Number.isFinite(rendered?.y)) {
-      cursorPositionsByTab.set(tabId, { x: rendered.x, y: rendered.y });
+      cursorPositionsByTab.set(tabId, { x: rendered.x, y: rendered.y, documentId: results?.[0]?.documentId });
     }
-    return rendered;
+    return rendered ? { ...rendered, documentId: results?.[0]?.documentId } : rendered;
   } catch {
-    // Restricted pages can reject script injection. Input dispatch remains available.
+    // Recovery probes may fail on restricted or transient documents. Required pointer paths fail closed in requireVirtualCursor.
     return null;
   }
+}
+
+async function requireVirtualCursor(tabId, x, y, phase, details = {}, expectedDocumentId) {
+  const rendered = await showVirtualCursor(tabId, x, y, phase, details);
+  if (!rendered?.visible || rendered.topLayer !== true || !rendered.documentId) {
+    throw codedError("CURSOR_RENDER_FAILED", `Virtual cursor ${phase} feedback could not be rendered; browser input was not dispatched`, { tabId, phase });
+  }
+  if (expectedDocumentId && rendered.documentId !== expectedDocumentId) {
+    throw codedError("CURSOR_DOCUMENT_CHANGED", "The page changed while synchronizing virtual cursor feedback; browser input was not dispatched", {
+      tabId,
+      phase,
+      expectedDocumentId,
+      actualDocumentId: rendered.documentId
+    });
+  }
+  if ((x != null && Math.abs(rendered.x - x) > 1) || (y != null && Math.abs(rendered.y - y) > 1)) {
+    throw codedError("CURSOR_POSITION_MISMATCH", "Virtual cursor feedback did not reach the requested coordinates; browser input was not dispatched", { tabId, phase, x, y, renderedX: rendered.x, renderedY: rendered.y });
+  }
+  return rendered;
 }
 
 function cursorMotionDuration(tabId, x, y) {
@@ -477,10 +540,11 @@ function cursorMotionDuration(tabId, x, y) {
 
 async function moveVirtualCursor(tabId, x, y) {
   const duration = cursorMotionDuration(tabId, x, y);
-  await showVirtualCursor(tabId, x, y, "move", { motionDurationMs: duration });
-  await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "none" });
+  const started = await requireVirtualCursor(tabId, x, y, "move", { motionDurationMs: duration, waitForPaint: true });
   if (duration > 0) await waitForCursorMotion(duration + CURSOR_SETTLE_MS);
-  return duration;
+  await requireVirtualCursor(tabId, x, y, "ensure", { waitForPaint: true }, started.documentId);
+  await sendPointerCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "none" }, started.documentId);
+  return { duration, documentId: started.documentId };
 }
 
 function waitForCursorMotion(duration = CURSOR_SETTLE_MS) {
@@ -498,24 +562,67 @@ async function evaluateValue(tabId, expression) {
   return response.result?.value;
 }
 
+async function sendPointerCdp(tabId, method, params = {}, expectedDocumentId) {
+  if (!controlledTabs.has(tabId)) throw codedError("POINTER_CONTROL_LOST", `Tab ${tabId} is no longer controlled`);
+  if (expectedDocumentId) await assertPointerDocument(tabId, expectedDocumentId);
+  return chrome.debugger.sendCommand({ tabId }, method, compact(params));
+}
+
+async function assertPointerDocument(tabId, expectedDocumentId) {
+  const frame = await chrome.webNavigation.getFrame({ tabId, frameId: 0 });
+  if (!frame?.documentId || frame.documentId !== expectedDocumentId) {
+    throw codedError("CURSOR_DOCUMENT_CHANGED", "The page changed before synchronized browser input could be dispatched", {
+      tabId,
+      expectedDocumentId,
+      actualDocumentId: frame?.documentId
+    });
+  }
+}
+
+async function evaluateAttachedValue(tabId, expression, expectedDocumentId) {
+  const response = await sendPointerCdp(tabId, "Runtime.evaluate", {
+    expression,
+    awaitPromise: true,
+    returnByValue: true,
+    userGesture: false
+  }, expectedDocumentId);
+  if (response.exceptionDetails) throw codedError("PAGE_EVALUATION_FAILED", response.exceptionDetails.text || "Page evaluation failed");
+  return response.result?.value;
+}
+
 async function clickLocator(tabId, locator, button, clickCount) {
   const target = await locate(tabId, locator);
-  await moveVirtualCursor(tabId, target.x, target.y);
-  await showVirtualCursor(tabId, target.x, target.y, "pressed");
-  await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x: target.x, y: target.y, button, clickCount });
-  await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x: target.x, y: target.y, button, clickCount });
-  await showVirtualCursor(tabId, target.x, target.y, "click");
+  await clickCoordinates(tabId, target.x, target.y, button, clickCount);
   return target;
+}
+
+async function clickCoordinates(tabId, x, y, button, clickCount) {
+  const movement = await moveVirtualCursor(tabId, x, y);
+  await requireVirtualCursor(tabId, x, y, "pressed", { waitForPaint: true }, movement.documentId);
+  let pressed = false;
+  try {
+    await sendPointerCdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x, y, button, clickCount }, movement.documentId);
+    pressed = true;
+    await waitForCursorMotion(CURSOR_PRESS_HOLD_MS);
+    await sendPointerCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button, clickCount }, movement.documentId);
+    pressed = false;
+  } finally {
+    if (pressed) {
+      await sendPointerCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button, clickCount }).catch(() => {});
+    }
+  }
+  await requireVirtualCursor(tabId, x, y, "click", { waitForPaint: true }, movement.documentId);
+  await waitForCursorMotion(CLICK_FEEDBACK_MS);
 }
 
 async function fillLocator(tabId, locator, value) {
   const target = await locate(tabId, locator);
-  await clickLocator(tabId, locator, "left", 1);
-  await sendCdp(tabId, "Input.dispatchKeyEvent", { type: "keyDown", key: "a", code: "KeyA", modifiers: 2 });
-  await sendCdp(tabId, "Input.dispatchKeyEvent", { type: "keyUp", key: "a", code: "KeyA", modifiers: 2 });
-  await sendCdp(tabId, "Input.dispatchKeyEvent", { type: "keyDown", key: "Backspace", code: "Backspace" });
-  await sendCdp(tabId, "Input.dispatchKeyEvent", { type: "keyUp", key: "Backspace", code: "Backspace" });
-  if (value) await sendCdp(tabId, "Input.insertText", { text: value });
+  await clickCoordinates(tabId, target.x, target.y, "left", 1);
+  await sendPointerCdp(tabId, "Input.dispatchKeyEvent", { type: "keyDown", key: "a", code: "KeyA", modifiers: 2 });
+  await sendPointerCdp(tabId, "Input.dispatchKeyEvent", { type: "keyUp", key: "a", code: "KeyA", modifiers: 2 });
+  await sendPointerCdp(tabId, "Input.dispatchKeyEvent", { type: "keyDown", key: "Backspace", code: "Backspace" });
+  await sendPointerCdp(tabId, "Input.dispatchKeyEvent", { type: "keyUp", key: "Backspace", code: "Backspace" });
+  if (value) await sendPointerCdp(tabId, "Input.insertText", { text: value });
   return { ...target, filled: true };
 }
 
@@ -523,20 +630,30 @@ async function drag(tabId, params) {
   const from = params.from?.locator ? await locate(tabId, params.from.locator) : { x: number(params.from?.x, 0), y: number(params.from?.y, 0) };
   const to = params.to?.locator ? await locate(tabId, params.to.locator) : { x: number(params.to?.x, 0), y: number(params.to?.y, 0) };
   const steps = Math.max(2, Math.min(Number(params.steps) || 12, 60));
-  await moveVirtualCursor(tabId, from.x, from.y);
-  await showVirtualCursor(tabId, from.x, from.y, "pressed", { drag: true, originX: from.x, originY: from.y });
-  await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x: from.x, y: from.y, button: "left", buttons: 1, clickCount: 1 });
-  for (let index = 1; index <= steps; index += 1) {
-    const ratio = index / steps;
-    const x = from.x + (to.x - from.x) * ratio;
-    const y = from.y + (to.y - from.y) * ratio;
-    await showVirtualCursor(tabId, x, y, "pressed", { drag: true, originX: from.x, originY: from.y });
-    await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x, y, button: "left", buttons: 1 });
-    await waitForCursorMotion(DRAG_FRAME_MS);
+  const movement = await moveVirtualCursor(tabId, from.x, from.y);
+  await requireVirtualCursor(tabId, from.x, from.y, "pressed", { drag: true, originX: from.x, originY: from.y, waitForPaint: true }, movement.documentId);
+  let pressed = false;
+  let current = { x: from.x, y: from.y };
+  try {
+    await sendPointerCdp(tabId, "Input.dispatchMouseEvent", { type: "mousePressed", x: from.x, y: from.y, button: "left", buttons: 1, clickCount: 1 }, movement.documentId);
+    pressed = true;
+    for (let index = 1; index <= steps; index += 1) {
+      const ratio = index / steps;
+      current = { x: from.x + (to.x - from.x) * ratio, y: from.y + (to.y - from.y) * ratio };
+      await requireVirtualCursor(tabId, current.x, current.y, "pressed", { drag: true, originX: from.x, originY: from.y, waitForPaint: true }, movement.documentId);
+      await sendPointerCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseMoved", x: current.x, y: current.y, button: "left", buttons: 1 }, movement.documentId);
+      await waitForCursorMotion(DRAG_FRAME_MS);
+    }
+    await waitForCursorMotion(CURSOR_SETTLE_MS);
+    await sendPointerCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x: to.x, y: to.y, button: "left", buttons: 0, clickCount: 1 }, movement.documentId);
+    pressed = false;
+  } finally {
+    if (pressed) {
+      await sendPointerCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x: current.x, y: current.y, button: "left", buttons: 0, clickCount: 1 }).catch(() => {});
+    }
   }
-  await waitForCursorMotion(CURSOR_SETTLE_MS);
-  await sendCdp(tabId, "Input.dispatchMouseEvent", { type: "mouseReleased", x: to.x, y: to.y, button: "left", buttons: 0, clickCount: 1 });
-  await showVirtualCursor(tabId, to.x, to.y, "click", { dragEnd: true });
+  await requireVirtualCursor(tabId, to.x, to.y, "click", { dragEnd: true, waitForPaint: true }, movement.documentId);
+  await waitForCursorMotion(CLICK_FEEDBACK_MS);
   return { from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y }, steps };
 }
 

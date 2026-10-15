@@ -59,7 +59,7 @@ try {
   assertCursorOverlay(cursorAfterInitialNavigation);
   assert.deepEqual(
     { marker: cursorAfterInitialNavigation.marker, state: cursorAfterInitialNavigation.state, x: cursorAfterInitialNavigation.x, y: cursorAfterInitialNavigation.y },
-    { marker: "overlay-v12", state: "move", x: claimedCursorState.x, y: claimedCursorState.y }
+    { marker: "overlay-v13", state: "move", x: claimedCursorState.x, y: claimedCursorState.y }
   );
 
   stage = "cursorAboveModalTopLayer";
@@ -92,7 +92,7 @@ try {
   assertCursorOverlay(cursorState);
   assert.deepEqual(
     { marker: cursorState.marker, state: cursorState.state, x: cursorState.x, y: cursorState.y },
-    { marker: "overlay-v12", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
+    { marker: "overlay-v13", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
   );
 
   stage = "cursorPositionAfterNavigation";
@@ -102,7 +102,7 @@ try {
   assertCursorOverlay(restoredCursorState);
   assert.deepEqual(
     { marker: restoredCursorState.marker, state: restoredCursorState.state, x: restoredCursorState.x, y: restoredCursorState.y },
-    { marker: "overlay-v12", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
+    { marker: "overlay-v13", state: "move", x: String(Math.round(cursorX)), y: String(Math.round(cursorY)) }
   );
 
   if (foreignFrameUrl) {
@@ -159,7 +159,7 @@ async function readCursorState(client, tabId) {
     tabId,
     command: "Runtime.evaluate",
     params: {
-      expression: `(() => { const node = document.querySelector('lingee-agent-cursor'); if (!node) return null; const style = getComputedStyle(node); const cursor = globalThis.__lingeeChromeVirtualCursorV12?.cursor; const transform = cursor ? getComputedStyle(cursor).transform : 'none'; const matrix = transform === 'none' ? null : new DOMMatrixReadOnly(transform); return { marker: node.dataset.lingeeAgentCursor, state: node.dataset.state, x: node.dataset.x, y: node.dataset.y, width: innerWidth, height: innerHeight, position: style.position, zIndex: style.zIndex, topLayer: node.matches(':popover-open'), visualX: matrix?.m41 ?? null, visualY: matrix?.m42 ?? null }; })()`,
+      expression: `(() => { const node = document.querySelector('lingee-agent-cursor'); if (!node) return null; const style = getComputedStyle(node); return { marker: node.dataset.lingeeAgentCursor, state: node.dataset.state, x: node.dataset.x, y: node.dataset.y, width: innerWidth, height: innerHeight, position: style.position, zIndex: style.zIndex, topLayer: node.matches(':popover-open') }; })()`,
       returnByValue: true
     }
   });
@@ -174,14 +174,10 @@ function assertCenteredCursor(cursor) {
 }
 
 function assertCursorOverlay(cursor) {
-  assert.equal(cursor?.marker, "overlay-v12");
+  assert.equal(cursor?.marker, "overlay-v13");
   assert.equal(cursor?.position, "fixed");
   assert.equal(cursor?.zIndex, "2147483647");
   assert.equal(cursor?.topLayer, true);
-  if (Number.isFinite(cursor?.visualX) && Number.isFinite(cursor?.visualY)) {
-    assert.ok(Math.abs(cursor.visualX - Number(cursor.x)) <= 1, `Rendered cursor x lags its reported position: ${JSON.stringify(cursor)}`);
-    assert.ok(Math.abs(cursor.visualY - Number(cursor.y)) <= 1, `Rendered cursor y lags its reported position: ${JSON.stringify(cursor)}`);
-  }
 }
 
 async function waitForText(client, tabId, expected, timeoutMs = 5000) {

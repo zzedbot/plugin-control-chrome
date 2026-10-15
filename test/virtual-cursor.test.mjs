@@ -4,7 +4,7 @@ import fs from "node:fs/promises";
 import { VIRTUAL_CURSOR_KEY, removeVirtualCursor, renderVirtualCursor } from "../extension/virtual-cursor.js";
 
 test("virtual cursor starts centered, stays visible, recovers its host, and is removable", { concurrency: false }, async () => {
-  const saved = { document: globalThis.document, innerWidth: globalThis.innerWidth, innerHeight: globalThis.innerHeight, MutationObserver: globalThis.MutationObserver, addEventListener: globalThis.addEventListener, removeEventListener: globalThis.removeEventListener };
+  const saved = { document: globalThis.document, innerWidth: globalThis.innerWidth, innerHeight: globalThis.innerHeight, MutationObserver: globalThis.MutationObserver, addEventListener: globalThis.addEventListener, removeEventListener: globalThis.removeEventListener, requestAnimationFrame: globalThis.requestAnimationFrame };
   const root = new FakeElement("html");
   const observers = [];
   const listeners = new Map();
@@ -32,7 +32,7 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
     const legacyObserver = { disconnected: false, disconnect() { this.disconnected = true; } };
     globalThis.__lingeeChromeVirtualCursorV9 = { host: legacyHost, observer: legacyObserver, onResize() {}, scrollTimer: null };
     assert.deepEqual(renderVirtualCursor(VIRTUAL_CURSOR_KEY, null, null, "ensure", {}, "chrome-extension://test/icons/lingee-48.png"), {
-      visible: true, x: 400, y: 300, phase: "ensure"
+      visible: true, x: 400, y: 300, phase: "ensure", topLayer: true
     });
     assert.equal(legacyObserver.disconnected, true, "a new cursor disconnects the previous version observer");
     assert.equal(legacyHost.isConnected, false, "a new cursor removes the previous version host");
@@ -44,7 +44,7 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
     assert.match(host.shadowHtml, /:host\{[^}]*position:fixed!important[^}]*z-index:2147483647!important/);
     assert.match(host.shadowHtml, /:host\{[^}]*pointer-events:none!important/);
     assert.match(host.shadowHtml, /\*\{[^}]*pointer-events:none/);
-    assert.equal(host.attributes.get("data-lingee-agent-cursor"), "overlay-v12");
+    assert.equal(host.attributes.get("data-lingee-agent-cursor"), "overlay-v13");
     assert.equal(host.attributes.get("popover"), "manual");
     assert.equal(host.showPopoverCalls, 1, "the overlay is promoted into the browser top layer");
     assert.equal(host.attributes.get("data-state"), "move");
@@ -102,6 +102,17 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
     assert.equal(replacement.scroll.classList.has("down"), true);
     assert.match(replacement.scrollThumb.style.transform, /translateY\(8px\)/);
 
+    let paintFrames = 0;
+    globalThis.requestAnimationFrame = (callback) => {
+      paintFrames += 1;
+      queueMicrotask(() => callback(paintFrames * 16));
+      return paintFrames;
+    };
+    const painted = renderVirtualCursor(VIRTUAL_CURSOR_KEY, 40, 50, "pressed", { waitForPaint: true });
+    assert.equal(typeof painted?.then, "function", "strongly bound feedback waits for browser paint");
+    assert.deepEqual(await painted, { visible: true, x: 40, y: 50, phase: "pressed", topLayer: true });
+    assert.equal(paintFrames, 2, "feedback resolves after two animation frames");
+
     renderVirtualCursor(VIRTUAL_CURSOR_KEY, 70, 80, "pressed", { drag: true, originX: 40, originY: 50 });
     assert.equal(replacement.cursor.classList.has("dragging"), true);
     assert.equal(replacement.cursor.style.transitionDuration, "0ms");
@@ -127,21 +138,24 @@ test("virtual cursor starts centered, stays visible, recovers its host, and is r
     globalThis.MutationObserver = saved.MutationObserver;
     globalThis.addEventListener = saved.addEventListener;
     globalThis.removeEventListener = saved.removeEventListener;
+    globalThis.requestAnimationFrame = saved.requestAnimationFrame;
     delete globalThis.__lingeeChromeVirtualCursorV9;
   }
 });
 
 test("background integrates the cursor with all pointer actions and detach cleanup", async () => {
   const background = await fs.readFile("extension/background.js", "utf8");
-  assert.match(background, /case "browser\.mouseMove"[\s\S]*showVirtualCursor/);
-  assert.match(background, /case "browser\.coordinateClick"[\s\S]*"pressed"/);
-  assert.match(background, /case "browser\.wheel"[\s\S]*"wheel"[\s\S]*deltaY/);
-  assert.match(background, /case "browser\.scroll"[\s\S]*"wheel"[\s\S]*deltaY/);
-  assert.match(background, /async function clickLocator[\s\S]*"click"/);
-  assert.match(background, /async function drag[\s\S]*drag: true[\s\S]*dragEnd: true/);
+  assert.match(background, /case "browser\.mouseMove"[\s\S]*runPointerOperation[\s\S]*moveVirtualCursor/);
+  assert.match(background, /case "browser\.coordinateClick"[\s\S]*runPointerOperation[\s\S]*clickCoordinates/);
+  assert.match(background, /case "browser\.wheel"[\s\S]*requireVirtualCursor[\s\S]*"wheel"[\s\S]*sendPointerCdp/);
+  assert.match(background, /case "browser\.scroll"[\s\S]*requireVirtualCursor[\s\S]*"wheel"[\s\S]*evaluateAttachedValue/);
+  assert.match(background, /async function clickCoordinates[\s\S]*"pressed"[\s\S]*CURSOR_PRESS_HOLD_MS[\s\S]*"mouseReleased"[\s\S]*"click"[\s\S]*CLICK_FEEDBACK_MS/);
+  assert.match(background, /async function drag[\s\S]*requireVirtualCursor[\s\S]*drag: true[\s\S]*dragEnd: true/);
   assert.match(background, /const cursorPositionsByTab = new Map\(\)/);
+  assert.match(background, /const tabOperationQueue = createTabOperationQueue\(\)/);
   assert.match(background, /function cursorMotionDuration[\s\S]*CURSOR_MIN_MOTION_MS[\s\S]*CURSOR_MAX_MOTION_MS/);
-  assert.match(background, /async function moveVirtualCursor[\s\S]*motionDurationMs[\s\S]*CURSOR_SETTLE_MS/);
+  assert.match(background, /async function moveVirtualCursor[\s\S]*requireVirtualCursor[\s\S]*CURSOR_SETTLE_MS[\s\S]*sendPointerCdp/);
+  assert.match(background, /async function requireVirtualCursor[\s\S]*CURSOR_RENDER_FAILED[\s\S]*CURSOR_DOCUMENT_CHANGED[\s\S]*CURSOR_POSITION_MISMATCH/);
   assert.match(background, /const effectiveX = x == null && previous \? previous\.x : x/);
   assert.match(background, /async function ensureDebugger[\s\S]*null, null, "ensure"/);
   assert.match(background, /function refreshForeignFrameMonitor[\s\S]*null, null, "ensure"/);

@@ -189,6 +189,15 @@ E2E fixture 新增空白文档复用尝试：页面先注册 load 处理器并�
 - 慢速可视验收依次停留展示居中初始化、三段移动、语义点击、三次向下滚动和一次向上滚动。四阶段截图保存为 `dist/cursor-slow-{1-initialized,2-moved,3-clicked,4-scrolled}.png`；初始化截图确认箭头直接位于视口中心，移动和点击截图确认箭头到达目标且按钮状态改变，滚动截图确认页面进入下一内容区，结束后正常 detach 并保留演示页。
 - 已生成 `dist/lingee-chrome-control-skill-0.1.21.zip`（9 个文件）和 `dist/lingee-chrome-agent-bridge-extension-0.1.21.zip`（12 个文件）。两包均从 ZIP 解压后逐文件核对 SHA-256；解压 Skill 通过 `quick_validate.py`，扩展脚本通过 `node --check`，扩展 manifest 的名称和版本核验为 Lingee Chrome Agent Bridge 0.1.21。
 
+### 0.1.22 动画与真实输入强绑定
+
+- 新增标签页级操作队列，使移动、点击、拖拽、滚轮、页面滚动及导航在同一标签页内按请求顺序执行，避免并发请求交错动画与输入。
+- 虚拟鼠标标记升级为 `overlay-v13`。需要真实输入的动作会等待覆盖层连续两个动画帧，随后验证覆盖层仍连接、处于浏览器 top layer、坐标一致且顶层 documentId 未变化，再派发对应输入。
+- 鼠标移动在视觉移动完成后才派发目标位置的 `mouseMoved`；单击在按下态绘制后派发 `mousePressed`，保持 80ms，再派发 `mouseReleased` 并展示 560ms 点击反馈；滚轮、页面滚动和拖拽采用相同的绘制前置门禁。
+- 覆盖层无法绘制、导航替换文档或坐标不一致时分别返回 `CURSOR_RENDER_FAILED`、`CURSOR_DOCUMENT_CHANGED`、`CURSOR_POSITION_MISMATCH`，不会继续派发对应输入。
+- 静态检查与单元测试已通过。重新加载后的实例 `8c41416b-bef1-4ccf-8fe4-2da4182263eb` 报告 Host/扩展均为 0.1.22、虚拟鼠标标记为 `overlay-v13`，标准真实 Chrome E2E 通过。
+- 针对第三方智能体可能用 raw CDP 或页面脚本绕过指针接口的问题，Skill 新增可见交互路由约束和回归测试；完整测试结果为 86/86。仓库 Skill 与本机安装副本均通过 `quick_validate.py`，新包 `dist/lingee-chrome-control-skill-0.1.22.zip` 包含 9 个预期文件。
+
 本轮公开桥接口读取结果：
 
 - Host 连接正常，但运行版本仍为 0.1.0。

@@ -42,6 +42,10 @@ Run `node "<skill-root>/scripts/doctor.mjs"`. It emits one JSON report and does 
 | `LOCATOR_AMBIGUOUS` | The semantic locator matched more than one visible element. | Re-read state and add stable role/name, label, exact text, test ID, or CSS evidence until one visible element remains. |
 | `BROWSER_TIMEOUT` | A browser operation exceeded its timeout and may have partially completed. | Recheck bridge status and current target state. Determine whether the prior action occurred before deciding whether to retry. |
 | `FOREIGN_FRAME_MONITOR_FAILED` | The controlled-tab monitor could not be installed before debugger attachment. | Re-read the tab and extension status, reload the unpacked extension if its files changed, and retry one claim. Do not disable other extensions or broaden Chrome flags as a workaround. |
+| `CURSOR_RENDER_FAILED` | Required virtual-pointer feedback was not visibly painted in the browser top layer, so the extension did not dispatch the corresponding pointer input. | Verify the tab is still an ordinary injectable web page and the current extension is loaded. Re-read the tab, then retry once only after the cursor is visible. |
+| `CURSOR_DOCUMENT_CHANGED` | Top-level navigation replaced the document while visual feedback and browser input were being synchronized, so the extension stopped the action. | Wait for navigation to settle, re-read the page and rebuild the locator or fresh coordinates before issuing a new action. Never reuse the interrupted action's coordinates. |
+| `CURSOR_POSITION_MISMATCH` | The painted virtual pointer did not reach the requested viewport coordinates, so the extension did not dispatch the corresponding pointer input. | Capture fresh page evidence and recalculate the target. If it repeats, stop and report the mismatch instead of retrying the same coordinates. |
+| `POINTER_CONTROL_LOST` | The tab lost the bridge's debugger control before synchronized pointer input could be dispatched. | Recheck bridge and tab state, claim the intended tab again if still authorized, then re-read the target before acting. |
 
 ## Multiple instances or tabs
 

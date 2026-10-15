@@ -172,6 +172,8 @@ test("skill metadata and workflow expose the cross-tool contract", async () => {
 
   assert.doesNotMatch(skill, /scripts\/diagnose\.mjs/);
   assert.match(skill, /resolve CLI entrypoints from the loaded Skill root/i);
+  assert.match(skill, /Preserve visible pointer behavior/i);
+  assert.match(skill, /Do not substitute `browser\.cdp` with `Runtime\.evaluate`/i);
 
   const orderedDecisions = [
     "explicit Chrome intent",
@@ -220,6 +222,15 @@ test("security contract requires approval and forbids secret-store access", asyn
 
   assert.match(security, /login[^\n]*(?:stop|do not bypass)|(?:stop|do not bypass)[^\n]*login/i);
   assert.match(security, /CAPTCHA[^\n]*(?:stop|do not bypass)|(?:stop|do not bypass)[^\n]*CAPTCHA/i);
+});
+
+test("skill keeps visible interactions on pointer-aware bridge methods", async () => {
+  const skill = await readFile(join(skillRoot, "SKILL.md"), "utf8");
+  const tools = await readFile(join(skillRoot, "references/tools.md"), "utf8");
+  for (const method of ["browser.click", "browser.fill", "browser.mouseMove", "browser.coordinateClick", "browser.drag", "browser.wheel", "browser.scroll"])
+    assert.match(skill, new RegExp(method.replace(".", "\\.")));
+  assert.match(`${skill}\n${tools}`, /DOM `\.click\(\)`[^\n]*bypass(?:es)? (?:the )?(?:virtual )?pointer/i);
+  assert.match(tools, /script scrolling[^\n]*bypass(?:es)? pointer feedback/i);
 });
 
 test("host approval discloses and authorizes subdomain scope", async () => {

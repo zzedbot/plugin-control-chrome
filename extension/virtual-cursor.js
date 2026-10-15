@@ -1,4 +1,4 @@
-export const VIRTUAL_CURSOR_KEY = "__lingeeChromeVirtualCursorV12";
+export const VIRTUAL_CURSOR_KEY = "__lingeeChromeVirtualCursorV13";
 
 // This function is serialized by chrome.scripting.executeScript. Keep it self-contained.
 export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move", details = {}, iconUrl = "") {
@@ -30,7 +30,7 @@ export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move", detai
     for (const staleHost of document.querySelectorAll?.("lingee-agent-cursor[data-lingee-agent-cursor]") || []) staleHost.remove();
     const host = document.createElement("lingee-agent-cursor");
     host.setAttribute("aria-hidden", "true");
-    host.setAttribute("data-lingee-agent-cursor", "overlay-v12");
+    host.setAttribute("data-lingee-agent-cursor", "overlay-v13");
     host.setAttribute("popover", "manual");
     host.style.cssText = "position:fixed!important;inset:0!important;display:block!important;margin:0!important;padding:0!important;border:0!important;width:auto!important;height:auto!important;pointer-events:none!important;overflow:visible!important;z-index:2147483647!important;contain:strict!important;background:transparent!important;";
     const shadow = host.attachShadow({ mode: "closed" });
@@ -236,7 +236,17 @@ export function renderVirtualCursor(markerKey, rawX, rawY, phase = "move", detai
     state.tether.classList.remove("visible");
   }
 
-  return { visible: true, x, y, phase };
+  const currentResult = () => ({
+    visible: state.host.isConnected === true,
+    x: state.x,
+    y: state.y,
+    phase,
+    topLayer: state.host.matches?.(":popover-open") === true
+  });
+  if (details?.waitForPaint && typeof requestAnimationFrame === "function") {
+    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(currentResult()))));
+  }
+  return currentResult();
 }
 
 // This function is serialized by chrome.scripting.executeScript. Keep it self-contained.
