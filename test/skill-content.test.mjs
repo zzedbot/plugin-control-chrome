@@ -125,8 +125,37 @@ test("skill package contains required cross-tool files", async () => {
     "scripts/invoke.mjs",
     "scripts/doctor.mjs",
     "scripts/runtime/bridge-client.mjs",
-    "scripts/runtime/runtime-paths.mjs"
+    "scripts/runtime/runtime-paths.mjs",
+    "assets/chrome-extension/manifest.json"
   ]) assert.equal(await exists(join(skillRoot, path)), true, path);
+});
+
+test("skill bundles an exact installable copy of the Chrome extension", async () => {
+  const extensionFiles = [
+    "background.js",
+    "debugger-controller.js",
+    "foreign-frame-monitor.js",
+    "manifest.json",
+    "monitor-injection.js",
+    "options.html",
+    "options.js",
+    "popup.html",
+    "popup.js",
+    "tab-operation-queue.js",
+    "ui.css",
+    "virtual-cursor.js",
+    "icons/lingee-48.png"
+  ];
+  for (const path of extensionFiles) {
+    assert.deepEqual(
+      await readFile(join(skillRoot, "assets", "chrome-extension", path)),
+      await readFile(join(repoRoot, "extension", path)),
+      `${path} stays synchronized in the Skill package`
+    );
+  }
+  const manifest = JSON.parse(await readFile(join(skillRoot, "assets", "chrome-extension", "manifest.json"), "utf8"));
+  assert.equal(manifest.name, "Lingee Chrome Agent Bridge");
+  assert.equal(manifest.version, "0.1.22");
 });
 
 test("tool reference structurally matches MCP schemas and Bridge mappings", async () => {
